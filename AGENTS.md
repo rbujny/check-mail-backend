@@ -5,6 +5,7 @@ Collaboration rules for this repository:
 ## General rules
 - update `README.md` when backend behavior, usage, or deployment changes
 - write all `.md` files in English
+- all documentation should be placed in `/docs`
 
 ## Functions
 - keep new Cloud Functions in `functions/<name>`
