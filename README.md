@@ -6,6 +6,7 @@ Basic GCP infrastructure setup for the backend using Terraform.
 
 - Terraform backend stored in GCS bucket `checkmail-plugin-dev-state`
 - Basic Google Cloud Functions Gen2 deployment
+- Cloud SQL for PostgreSQL setup
 - TypeScript HTTP function source
 - Auto-discovery of functions from the `functions/*/function.json` files
 - Express-wrapped handlers registered with `@google-cloud/functions-framework`
@@ -18,6 +19,12 @@ Basic GCP infrastructure setup for the backend using Terraform.
 - `functions/auth/` - JWT issuing HTTP function
 
 ## First run
+
+Before the first Terraform apply, create `infra/.tfvars` from `infra/.tfvars.example` and fill in all required values.
+
+Current required values:
+
+- `db_password`
 
 ```powershell
 cd infra
@@ -42,29 +49,6 @@ Terraform automatically discovers every `functions/*/function.json` file and dep
 
 Function conventions are documented in `docs/functions.md`.
 
-## Auth function
-
-The `auth` function exposes an HTTP endpoint that issues HS256 JWT tokens. It expects a `POST` body like:
-
-```json
-{
-  "subject": "user-123",
-  "claims": {
-    "role": "admin"
-  },
-  "expiresIn": "1h"
-}
-```
-
-Secrets and per-function env vars should be passed through Terraform overrides, for example:
-
-```hcl
-function_env_overrides = {
-  auth = {
-    JWT_SECRET = "replace-me"
-  }
-}
-```
 
 ## Codex team setup
 
