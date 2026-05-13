@@ -15,3 +15,9 @@ variable "function_env_overrides" {
   type        = map(map(string))
   default     = {}
 }
+
+variable "db_password" {
+  description = "Cloud SQL DB password"
+  type        = string
+  default     = ""
+}
