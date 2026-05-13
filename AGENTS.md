@@ -10,9 +10,9 @@ Collaboration rules for this repository:
 ## Functions
 - keep new Cloud Functions in `functions/<name>`
 - each function should include `function.json`, `package.json`, `tsconfig.json`, and `src/index.ts`
-- register HTTP handlers through `@google-cloud/functions-framework`
-- all functions should have their types exported to a separate file
-- common functions and types should be placed in `functions/common/<name>`
+- wrap all HTTP functions in an Express app and register them through `@google-cloud/functions-framework`
+- all function-specific types should be exported from a dedicated file such as `src/types.ts`
+- reusable functions and shared types should be placed in `functions/common/<name>` when used by more than one function
 
 ## Terraform
 - avoid duplicating Terraform blocks and rely on function autodiscovery when possible

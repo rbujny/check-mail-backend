@@ -1,18 +1,29 @@
-type Request = {
-  method?: string;
-};
+import { http } from "@google-cloud/functions-framework";
+import express, { type Request, type Response } from "express";
 
-type Response = {
-  set: (header: string, value: string) => void;
-  status: (code: number) => {
-    send: (body: unknown) => void;
-  };
-};
+import type { BasicHttpErrorResponse, BasicHttpResponse } from "./types";
 
-export const helloHttp = (req: Request, res: Response): void => {
-  res.set("content-type", "application/json");
-  res.status(200).send({
+const app = express();
+
+app.disable("x-powered-by");
+
+app.get("/", (req: Request, res: Response<BasicHttpResponse>): void => {
+  res.status(200).json({
     message: "check-mail backend is alive",
     method: req.method ?? "UNKNOWN",
   });
-};
+});
+
+app.all("/", (_req: Request, res: Response<BasicHttpErrorResponse>): void => {
+  res.status(405).json({
+    error: "Method not allowed. Use GET.",
+  });
+});
+
+app.use((_req: Request, res: Response<BasicHttpErrorResponse>): void => {
+  res.status(404).json({
+    error: "Not found.",
+  });
+});
+
+http("helloHttp", app);

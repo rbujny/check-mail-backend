@@ -8,10 +8,11 @@ Basic GCP infrastructure setup for the backend using Terraform.
 - Basic Google Cloud Functions Gen2 deployment
 - TypeScript HTTP function source
 - Auto-discovery of functions from the `functions/*/function.json` files
-- Handlers registered with `@google-cloud/functions-framework`
+- Express-wrapped handlers registered with `@google-cloud/functions-framework`
 
 ## Structure
 
+- `docs/` - repository documentation
 - `infra/` - Terraform configuration
 - `functions/basic-http/` - healthcheck HTTP function
 - `functions/auth/` - JWT issuing HTTP function
@@ -38,6 +39,8 @@ To add a new function, create a new directory under `functions/` with:
 - `function.json`
 
 Terraform automatically discovers every `functions/*/function.json` file and deploys it as a separate Cloud Function Gen2.
+
+Function conventions are documented in `docs/functions.md`.
 
 ## Auth function
 
