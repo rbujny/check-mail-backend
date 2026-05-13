@@ -1,0 +1,14 @@
+{
+  "name": "checkmail-auth",
+  "entry_point": "authHttp",
+  "runtime": "nodejs20",
+  "available_memory": "256M",
+  "ingress_settings": "ALLOW_ALL",
+  "max_instance_count": 1,
+  "timeout_seconds": 60,
+  "environment_variables": {
+    "JWT_ISSUER": "checkmail-backend",
+    "JWT_AUDIENCE": "checkmail-clients",
+    "JWT_EXPIRES_IN": "1h"
+  }
+}

@@ -12,5 +12,5 @@ terraform.rc
 
 node_modules/
 dist/
-infra/basic-http.zip
+infra/*.zip
 tools/terraform

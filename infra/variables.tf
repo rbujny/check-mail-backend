@@ -10,8 +10,8 @@ variable "region" {
   default     = "europe-west1"
 }
 
-variable "function_name" {
-  description = "Cloud Function name."
-  type        = string
-  default     = "checkmail-basic-http"
+variable "function_env_overrides" {
+  description = "Per-function environment variable overrides keyed by function directory name."
+  type        = map(map(string))
+  default     = {}
 }

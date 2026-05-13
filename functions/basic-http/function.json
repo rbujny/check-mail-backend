@@ -1,0 +1,9 @@
+{
+  "name": "checkmail-basic-http",
+  "entry_point": "helloHttp",
+  "runtime": "nodejs20",
+  "available_memory": "256M",
+  "ingress_settings": "ALLOW_ALL",
+  "max_instance_count": 1,
+  "timeout_seconds": 60
+}

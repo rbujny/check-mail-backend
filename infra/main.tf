@@ -3,11 +3,34 @@ provider "google" {
   region  = var.region
 }
 
+locals {
+  function_config_files = fileset("${path.module}/../functions", "*/function.json")
+
+  functions = {
+    for relative_path in local.function_config_files :
+    basename(dirname(relative_path)) => merge(
+      {
+        available_memory      = "256M"
+        directory             = basename(dirname(relative_path))
+        entry_point           = "handler"
+        environment_variables = {}
+        ingress_settings      = "ALLOW_ALL"
+        max_instance_count    = 1
+        name                  = basename(dirname(relative_path))
+        runtime               = "nodejs20"
+        timeout_seconds       = 60
+      },
+      jsondecode(file("${path.module}/../functions/${relative_path}"))
+    )
+  }
+}
+
 resource "google_project_service" "required" {
   for_each = toset([
     "artifactregistry.googleapis.com",
     "cloudbuild.googleapis.com",
     "cloudfunctions.googleapis.com",
+    "logging.googleapis.com",
     "run.googleapis.com",
   ])
 
@@ -28,40 +51,46 @@ resource "google_storage_bucket" "function_source" {
 }
 
 data "archive_file" "function_source" {
+  for_each    = local.functions
   type        = "zip"
-  output_path = "${path.module}/basic-http.zip"
-  source_dir  = "${path.module}/../functions/basic-http"
+  output_path = "${path.module}/${each.key}.zip"
+  source_dir  = "${path.module}/../functions/${each.value.directory}"
 }
 
 resource "google_storage_bucket_object" "function_archive" {
-  name   = "basic-http-${data.archive_file.function_source.output_md5}.zip"
+  for_each = local.functions
+
+  name   = "${each.key}-${data.archive_file.function_source[each.key].output_md5}.zip"
   bucket = google_storage_bucket.function_source.name
-  source = data.archive_file.function_source.output_path
+  source = data.archive_file.function_source[each.key].output_path
 }
 
-resource "google_cloudfunctions2_function" "basic_http" {
-  name     = var.function_name
+resource "google_cloudfunctions2_function" "functions" {
+  for_each = local.functions
+
+  name     = each.value.name
   location = var.region
   project  = var.project_id
 
   build_config {
-    runtime     = "nodejs20"
-    entry_point = "helloHttp"
+    runtime     = each.value.runtime
+    entry_point = each.value.entry_point
 
     source {
       storage_source {
         bucket = google_storage_bucket.function_source.name
-        object = google_storage_bucket_object.function_archive.name
+        object = google_storage_bucket_object.function_archive[each.key].name
       }
     }
   }
 
   service_config {
-    available_memory      = "256M"
-    ingress_settings      = "ALLOW_ALL"
-    max_instance_count    = 1
-    timeout_seconds       = 60
+    available_memory              = each.value.available_memory
     all_traffic_on_latest_revision = true
+    environment_variables         = merge(each.value.environment_variables, lookup(var.function_env_overrides, each.key, {}))
+    ingress_settings              = each.value.ingress_settings
+    max_instance_count            = each.value.max_instance_count
+    timeout_seconds               = each.value.timeout_seconds
   }
 
   depends_on = [google_project_service.required]

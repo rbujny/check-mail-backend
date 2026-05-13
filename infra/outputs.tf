@@ -1,9 +1,13 @@
-output "function_name" {
-  description = "Deployed Cloud Function name."
-  value       = google_cloudfunctions2_function.basic_http.name
+output "function_names" {
+  description = "Deployed Cloud Function names keyed by function directory."
+  value = {
+    for key, function in google_cloudfunctions2_function.functions : key => function.name
+  }
 }
 
-output "function_uri" {
-  description = "HTTPS URL of the deployed function."
-  value       = google_cloudfunctions2_function.basic_http.service_config[0].uri
+output "function_uris" {
+  description = "HTTPS URLs of deployed functions keyed by function directory."
+  value = {
+    for key, function in google_cloudfunctions2_function.functions : key => function.service_config[0].uri
+  }
 }
