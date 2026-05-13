@@ -1,0 +1,16 @@
+.terraform/
+infra/.tf-appdata/
+*.tfstate
+*.tfstate.*
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+node_modules/
+dist/
+infra/basic-http.zip
+tools/

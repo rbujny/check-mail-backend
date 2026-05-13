@@ -1,0 +1,16 @@
+{
+  "name": "checkmail-basic-http",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "gcp-build": "npm run build"
+  },
+  "dependencies": {
+    "@google-cloud/functions-framework": "^3.4.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}
