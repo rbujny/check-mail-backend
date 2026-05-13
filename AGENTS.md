@@ -2,13 +2,20 @@
 
 Collaboration rules for this repository:
 
+## General rules
+- update `README.md` when backend behavior, usage, or deployment changes
+- write all `.md` files in English
+
+## Functions
 - keep new Cloud Functions in `functions/<name>`
 - each function should include `function.json`, `package.json`, `tsconfig.json`, and `src/index.ts`
 - register HTTP handlers through `@google-cloud/functions-framework`
+- all functions should have their types exported to a separate file
+- common functions and types should be placed in `functions/common/<name>`
+
+## Terraform
 - avoid duplicating Terraform blocks and rely on function autodiscovery when possible
 - pass secrets and environment variables through Terraform, and never store them in the repository
-- update `README.md` when backend behavior, usage, or deployment changes
-- write all `.md` files in English
 
 Shared Codex resources in this repository:
 
