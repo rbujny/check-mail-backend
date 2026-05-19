@@ -18,23 +18,40 @@ Basic GCP infrastructure setup for the backend using Terraform.
 - `functions/basic-http/` - healthcheck HTTP function
 - `functions/auth/` - JWT issuing HTTP function
 
-## First run
+## Deployment
 
-Before the first Terraform apply, create `infra/.tfvars` from `infra/.tfvars.example` and fill in all required values.
+This repository uses one shared environment across developers. Deployments run only through the GitHub Actions workflow in `.github/workflows/deploy.yml`.
 
-Current required values:
+Configure these GitHub repository secrets before running the workflow:
 
-- `db_password`
+- `CHECKMAIL_GCP_CREDENTIALS_JSON`
+- `CHECKMAIL_PROJECT_ID`
+- `CHECKMAIL_REGION`
+- `CHECKMAIL_DB_PASSWORD`
+- `CHECKMAIL_JWT_SECRET`
+- `CHECKMAIL_JWT_ISSUER`
+- `CHECKMAIL_JWT_AUDIENCE`
+- `CHECKMAIL_JWT_EXPIRES_IN`
 
-```powershell
-cd infra
-terraform init
-terraform apply
-```
+The workflow maps GitHub Secrets to Terraform `TF_VAR_*` environment variables and runs `terraform init`, `terraform validate`, `terraform plan`, and `terraform apply`.
+
+The workflow runs on pushes to `main` and can also be started manually from the GitHub Actions tab.
 
 The Terraform backend is configured to use the existing bucket:
 
 - `checkmail-plugin-dev-state`
+
+## Local development
+
+Local development is for Cloud Functions only. Run a function from its directory with the Functions Framework:
+
+```sh
+cd functions/basic-http
+npm install
+npm run start
+```
+
+Use GitHub Actions for infrastructure and shared environment deployments.
 
 ## Adding another function
 

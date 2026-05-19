@@ -85,12 +85,21 @@ resource "google_cloudfunctions2_function" "functions" {
   }
 
   service_config {
-    available_memory              = each.value.available_memory
+    available_memory               = each.value.available_memory
     all_traffic_on_latest_revision = true
-    environment_variables         = merge(each.value.environment_variables, lookup(var.function_env_overrides, each.key, {}))
-    ingress_settings              = each.value.ingress_settings
-    max_instance_count            = each.value.max_instance_count
-    timeout_seconds               = each.value.timeout_seconds
+    environment_variables = merge(
+      each.value.environment_variables,
+      each.key == "auth" ? {
+        JWT_AUDIENCE   = var.jwt_audience
+        JWT_EXPIRES_IN = var.jwt_expires_in
+        JWT_ISSUER     = var.jwt_issuer
+        JWT_SECRET     = var.jwt_secret
+      } : {},
+      lookup(var.function_env_overrides, each.key, {}),
+    )
+    ingress_settings   = each.value.ingress_settings
+    max_instance_count = each.value.max_instance_count
+    timeout_seconds    = each.value.timeout_seconds
   }
 
   depends_on = [google_project_service.required]
