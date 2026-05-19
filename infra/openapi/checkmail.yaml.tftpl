@@ -1,0 +1,147 @@
+swagger: "2.0"
+info:
+  title: "Checkmail API"
+  description: "Public API Gateway routes for Checkmail backend functions."
+  version: "1.0.0"
+schemes:
+  - "https"
+produces:
+  - "application/json"
+consumes:
+  - "application/json"
+securityDefinitions:
+  checkmail_jwt:
+    authorizationUrl: ""
+    flow: "implicit"
+    type: "oauth2"
+    x-google-issuer: "${jwt_issuer}"
+    x-google-jwks_uri: "${auth_function_url}/.well-known/jwks.json"
+    x-google-audiences: "${jwt_audience}"
+security:
+  - checkmail_jwt: []
+paths:
+  /health:
+    get:
+      operationId: "getHealth"
+      summary: "Backend health check"
+      x-google-backend:
+        address: "${basic_http_function_url}"
+        jwt_audience: "${basic_http_function_url}"
+        path_translation: "CONSTANT_ADDRESS"
+      responses:
+        "200":
+          description: "The backend is alive."
+          schema:
+            type: "object"
+            properties:
+              message:
+                type: "string"
+              method:
+                type: "string"
+        "405":
+          description: "Unsupported method."
+    options:
+      security: []
+      operationId: "optionsHealth"
+      summary: "Health check CORS preflight"
+      x-google-backend:
+        address: "${basic_http_function_url}"
+        jwt_audience: "${basic_http_function_url}"
+        path_translation: "CONSTANT_ADDRESS"
+      responses:
+        "204":
+          description: "CORS preflight accepted."
+  /auth/token:
+    post:
+      security: []
+      operationId: "createAuthToken"
+      summary: "Create a signed JWT"
+      x-google-backend:
+        address: "${auth_function_url}"
+        jwt_audience: "${auth_function_url}"
+        path_translation: "CONSTANT_ADDRESS"
+      parameters:
+        - in: "body"
+          name: "body"
+          required: true
+          schema:
+            type: "object"
+            required:
+              - "subject"
+            properties:
+              subject:
+                type: "string"
+              claims:
+                type: "object"
+                additionalProperties: true
+              expiresIn:
+                type: "string"
+              issuer:
+                type: "string"
+              audience:
+                type: "string"
+      responses:
+        "200":
+          description: "A JWT was created."
+          schema:
+            type: "object"
+            properties:
+              audience:
+                type: "string"
+              expiresAt:
+                type: "integer"
+              issuedAt:
+                type: "integer"
+              issuer:
+                type: "string"
+              subject:
+                type: "string"
+              token:
+                type: "string"
+              tokenType:
+                type: "string"
+        "400":
+          description: "Invalid request body."
+        "500":
+          description: "Token signing is not configured or failed."
+    options:
+      security: []
+      operationId: "optionsAuthToken"
+      summary: "Token endpoint CORS preflight"
+      x-google-backend:
+        address: "${auth_function_url}"
+        jwt_audience: "${auth_function_url}"
+        path_translation: "CONSTANT_ADDRESS"
+      responses:
+        "204":
+          description: "CORS preflight accepted."
+  /auth/jwks:
+    get:
+      security: []
+      operationId: "getAuthJwks"
+      summary: "JWT public keys"
+      x-google-backend:
+        address: "${auth_function_url}/.well-known/jwks.json"
+        jwt_audience: "${auth_function_url}"
+        path_translation: "CONSTANT_ADDRESS"
+      responses:
+        "200":
+          description: "Public JSON Web Key Set used to validate Checkmail JWTs."
+          schema:
+            type: "object"
+            properties:
+              keys:
+                type: "array"
+                items:
+                  type: "object"
+    options:
+      security: []
+      operationId: "optionsAuthJwks"
+      summary: "JWKS CORS preflight"
+      x-google-backend:
+        address: "${auth_function_url}/.well-known/jwks.json"
+        jwt_audience: "${auth_function_url}"
+        path_translation: "CONSTANT_ADDRESS"
+      responses:
+        "204":
+          description: "CORS preflight accepted."

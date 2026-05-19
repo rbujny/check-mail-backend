@@ -22,3 +22,14 @@ export type AuthSuccessResponse = {
 export type AuthErrorResponse = {
   error: string;
 };
+
+export type JsonWebKeyResponse = {
+  keys: Array<{
+    alg: "RS256";
+    e?: string;
+    kid: string;
+    kty?: string;
+    n?: string;
+    use: "sig";
+  }>;
+};

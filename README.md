@@ -6,6 +6,7 @@ Basic GCP infrastructure setup for the backend using Terraform.
 
 - Terraform backend stored in GCS bucket `checkmail-plugin-dev-state`
 - Basic Google Cloud Functions Gen2 deployment
+- API Gateway deployment from an OpenAPI spec
 - Cloud SQL for PostgreSQL setup
 - TypeScript HTTP function source
 - Auto-discovery of functions from the `functions/*/function.json` files
@@ -25,12 +26,13 @@ Before the first Terraform apply, create `infra/.tfvars` from `infra/.tfvars.exa
 Current required values:
 
 - `db_password`
+- `function_env_overrides.auth.JWT_PRIVATE_KEY`
 
-```powershell
-cd infra
-terraform init
-terraform apply
+```sh
+sh tools/terraform-apply.sh
 ```
+
+The script runs Terraform for all resources in `infra/` and uses `infra/.tfvars` by default. Use `sh tools/terraform-apply.sh --auto-approve` for non-interactive applies.
 
 The Terraform backend is configured to use the existing bucket:
 
@@ -48,6 +50,22 @@ To add a new function, create a new directory under `functions/` with:
 Terraform automatically discovers every `functions/*/function.json` file and deploys it as a separate Cloud Function Gen2.
 
 Function conventions are documented in `docs/functions.md`.
+
+## API Gateway
+
+Terraform deploys an API Gateway from `infra/openapi/checkmail.yaml.tftpl`.
+
+Current gateway routes:
+
+- `GET /health` requires a Checkmail JWT
+- `POST /auth/token`
+- `GET /auth/jwks`
+
+After `terraform apply`, use the `api_gateway_url` output as the public base URL.
+
+API Gateway configs are immutable. When the OpenAPI template changes, update `api_gateway_config_id` before applying.
+
+`POST /auth/token` signs JWTs with `RS256`. Provide `JWT_PRIVATE_KEY` outside the repository through Terraform environment overrides or secret injection. API Gateway validates protected routes with the public JWKS exposed by the auth function.
 
 
 ## Codex team setup

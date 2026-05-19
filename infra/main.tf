@@ -28,10 +28,14 @@ locals {
 resource "google_project_service" "required" {
   for_each = toset([
     "artifactregistry.googleapis.com",
+    "apigateway.googleapis.com",
     "cloudbuild.googleapis.com",
     "cloudfunctions.googleapis.com",
+    "iam.googleapis.com",
     "logging.googleapis.com",
     "run.googleapis.com",
+    "servicecontrol.googleapis.com",
+    "servicemanagement.googleapis.com",
   ])
 
   project            = var.project_id
@@ -85,12 +89,19 @@ resource "google_cloudfunctions2_function" "functions" {
   }
 
   service_config {
-    available_memory              = each.value.available_memory
+    available_memory               = each.value.available_memory
     all_traffic_on_latest_revision = true
-    environment_variables         = merge(each.value.environment_variables, lookup(var.function_env_overrides, each.key, {}))
-    ingress_settings              = each.value.ingress_settings
-    max_instance_count            = each.value.max_instance_count
-    timeout_seconds               = each.value.timeout_seconds
+    environment_variables = merge(
+      each.value.environment_variables,
+      each.key == "auth" ? {
+        JWT_AUDIENCE = var.jwt_audience
+        JWT_ISSUER   = var.jwt_issuer
+      } : {},
+      lookup(var.function_env_overrides, each.key, {}),
+    )
+    ingress_settings   = each.value.ingress_settings
+    max_instance_count = each.value.max_instance_count
+    timeout_seconds    = each.value.timeout_seconds
   }
 
   depends_on = [google_project_service.required]

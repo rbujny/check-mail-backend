@@ -37,6 +37,14 @@ Reusable functions and shared types that are used by more than one function shou
 
 Use local function files for logic that is specific to a single endpoint.
 
+## API Gateway routes
+
+Public API routes are defined by the OpenAPI template in `infra/openapi/checkmail.yaml.tftpl` and deployed through API Gateway.
+
+When adding a new public endpoint, add the backend function as usual and then add a gateway path that uses `x-google-backend` to route to the function URL. Existing functions expose their Express app at `/`, so gateway paths should use `path_translation: CONSTANT_ADDRESS` unless the function intentionally handles nested paths.
+
+Gateway routes require a valid Checkmail JWT by default. Use method-level `security: []` only for intentionally public endpoints such as token issuance, JWKS discovery, or CORS preflight.
+
 ## Secrets and configuration
 
 - keep secrets outside the repository

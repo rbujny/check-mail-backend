@@ -1,4 +1,5 @@
 import { http } from "@google-cloud/functions-framework";
+import { createPrivateKey, createPublicKey, type KeyObject } from "crypto";
 import express, {
   type NextFunction,
   type Request,
@@ -9,6 +10,7 @@ import jwt, { type JwtPayload, type SignOptions } from "jsonwebtoken";
 import type {
   AuthErrorResponse,
   AuthSuccessResponse,
+  JsonWebKeyResponse,
   TokenRequestBody,
 } from "./types";
 
@@ -18,7 +20,7 @@ app.disable("x-powered-by");
 app.use(express.json({ limit: "1mb" }));
 app.use((_req: Request, res: Response, next: NextFunction): void => {
   res.set("access-control-allow-headers", "content-type, authorization");
-  res.set("access-control-allow-methods", "OPTIONS, POST");
+  res.set("access-control-allow-methods", "GET, OPTIONS, POST");
   res.set("access-control-allow-origin", "*");
   next();
 });
@@ -73,16 +75,80 @@ const getDecodedPayload = (token: string): JwtPayload | null => {
   return decoded;
 };
 
+const normalizePem = (value: string): string => value.replace(/\\n/gu, "\n");
+
+const getPrivateKey = (): KeyObject | null => {
+  const privateKey = process.env.JWT_PRIVATE_KEY;
+  if (!privateKey) {
+    return null;
+  }
+
+  return createPrivateKey(normalizePem(privateKey));
+};
+
+const getKeyId = (): string => process.env.JWT_KEY_ID ?? "checkmail-auth-key";
+
+const buildPublicJwk = (): JsonWebKeyResponse | null => {
+  const privateKey = getPrivateKey();
+  if (!privateKey) {
+    return null;
+  }
+
+  const jwk = createPublicKey(privateKey).export({ format: "jwk" });
+
+  return {
+    keys: [
+      {
+        ...jwk,
+        alg: "RS256",
+        kid: getKeyId(),
+        use: "sig",
+      },
+    ],
+  };
+};
+
+app.get(
+  "/.well-known/jwks.json",
+  (_req: Request, res: Response<JsonWebKeyResponse | AuthErrorResponse>): void => {
+    try {
+      const jwks = buildPublicJwk();
+      if (!jwks) {
+        res.status(500).json({
+          error: "JWT_PRIVATE_KEY environment variable is not configured.",
+        });
+        return;
+      }
+
+      res.status(200).json(jwks);
+    } catch {
+      res.status(500).json({
+        error: "Failed to export JWT public key.",
+      });
+    }
+  },
+);
+
 app.post(
   "/",
   (
     req: Request<Record<string, never>, AuthSuccessResponse | AuthErrorResponse, TokenRequestBody>,
     res: Response<AuthSuccessResponse | AuthErrorResponse>,
   ): void => {
-    const secret = process.env.JWT_SECRET;
-    if (!secret) {
+    let privateKey: KeyObject | null = null;
+
+    try {
+      privateKey = getPrivateKey();
+    } catch {
       res.status(500).json({
-        error: "JWT_SECRET environment variable is not configured.",
+        error: "JWT_PRIVATE_KEY environment variable is invalid.",
+      });
+      return;
+    }
+
+    if (!privateKey) {
+      res.status(500).json({
+        error: "JWT_PRIVATE_KEY environment variable is not configured.",
       });
       return;
     }
@@ -138,13 +204,14 @@ app.post(
       ...(body.claims ?? {}),
     };
     const signOptions: SignOptions = {
-      algorithm: "HS256",
+      algorithm: "RS256",
       audience,
       expiresIn: expiresInSeconds,
       issuer,
+      keyid: getKeyId(),
       subject: body.subject,
     };
-    const token = jwt.sign(payload, secret, signOptions);
+    const token = jwt.sign(payload, privateKey, signOptions);
     const decodedPayload = getDecodedPayload(token);
 
     if (!decodedPayload || typeof decodedPayload.exp !== "number" || typeof decodedPayload.iat !== "number") {
