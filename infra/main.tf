@@ -85,12 +85,12 @@ resource "google_cloudfunctions2_function" "functions" {
   }
 
   service_config {
-    available_memory              = each.value.available_memory
+    available_memory               = each.value.available_memory
     all_traffic_on_latest_revision = true
-    environment_variables         = merge(each.value.environment_variables, lookup(var.function_env_overrides, each.key, {}))
-    ingress_settings              = each.value.ingress_settings
-    max_instance_count            = each.value.max_instance_count
-    timeout_seconds               = each.value.timeout_seconds
+    environment_variables          = merge(each.value.environment_variables, lookup(var.function_env_overrides, each.key, {}))
+    ingress_settings               = each.value.ingress_settings
+    max_instance_count             = each.value.max_instance_count
+    timeout_seconds                = each.value.timeout_seconds
   }
 
   depends_on = [google_project_service.required]

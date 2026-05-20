@@ -1,16 +1,8 @@
 import { http } from "@google-cloud/functions-framework";
-import express, {
-  type NextFunction,
-  type Request,
-  type Response,
-} from "express";
+import express, { type NextFunction, type Request, type Response } from "express";
 import jwt, { type JwtPayload, type SignOptions } from "jsonwebtoken";
 
-import type {
-  AuthErrorResponse,
-  AuthSuccessResponse,
-  TokenRequestBody,
-} from "./types";
+import type { AuthErrorResponse, AuthSuccessResponse, TokenRequestBody } from "./types";
 
 const app = express();
 
@@ -77,7 +69,7 @@ app.post(
   "/",
   (
     req: Request<Record<string, never>, AuthSuccessResponse | AuthErrorResponse, TokenRequestBody>,
-    res: Response<AuthSuccessResponse | AuthErrorResponse>,
+    res: Response<AuthSuccessResponse | AuthErrorResponse>
   ): void => {
     const secret = process.env.JWT_SECRET;
     if (!secret) {
@@ -110,11 +102,7 @@ app.post(
 
     if (
       body.claims !== undefined &&
-      (
-        typeof body.claims !== "object" ||
-        body.claims === null ||
-        Array.isArray(body.claims)
-      )
+      (typeof body.claims !== "object" || body.claims === null || Array.isArray(body.claims))
     ) {
       res.status(400).json({
         error: "Field 'claims' must be a JSON object when provided.",
@@ -147,7 +135,11 @@ app.post(
     const token = jwt.sign(payload, secret, signOptions);
     const decodedPayload = getDecodedPayload(token);
 
-    if (!decodedPayload || typeof decodedPayload.exp !== "number" || typeof decodedPayload.iat !== "number") {
+    if (
+      !decodedPayload ||
+      typeof decodedPayload.exp !== "number" ||
+      typeof decodedPayload.iat !== "number"
+    ) {
       res.status(500).json({
         error: "Failed to decode the generated token.",
       });
@@ -163,7 +155,7 @@ app.post(
       token,
       tokenType: "Bearer",
     });
-  },
+  }
 );
 
 app.all("/", (_req: Request, res: Response<AuthErrorResponse>): void => {
@@ -178,22 +170,19 @@ app.use((_req: Request, res: Response<AuthErrorResponse>): void => {
   });
 });
 
-app.use((
-  error: unknown,
-  _req: Request,
-  res: Response<AuthErrorResponse>,
-  _next: NextFunction,
-): void => {
-  if (error instanceof SyntaxError) {
-    res.status(400).json({
-      error: "Request body must be valid JSON.",
-    });
-    return;
-  }
+app.use(
+  (error: unknown, _req: Request, res: Response<AuthErrorResponse>, _next: NextFunction): void => {
+    if (error instanceof SyntaxError) {
+      res.status(400).json({
+        error: "Request body must be valid JSON.",
+      });
+      return;
+    }
 
-  res.status(500).json({
-    error: "Unexpected server error.",
-  });
-});
+    res.status(500).json({
+      error: "Unexpected server error.",
+    });
+  }
+);
 
 http("authHttp", app);
