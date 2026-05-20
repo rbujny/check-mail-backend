@@ -1,0 +1,10 @@
+.terraform/
+node_modules/
+dist/
+
+functions/*/node_modules/
+functions/*/dist/
+
+infra/*.zip
+infra/.tfvars
+infra/.terraform.lock.hcl

@@ -1,0 +1,91 @@
+name: PR checks
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  prettier:
+    name: Prettier
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install tooling
+        run: npm ci
+
+      - name: Check Prettier formatting
+        run: npm run format:check
+
+  terraform:
+    name: Terraform
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: Check Terraform formatting
+        run: terraform fmt -check -recursive infra
+
+      - name: Initialize Terraform
+        working-directory: infra
+        run: terraform init -backend=false -input=false
+
+      - name: Validate Terraform
+        working-directory: infra
+        run: terraform validate -no-color
+
+      - name: Set up TFLint
+        uses: terraform-linters/setup-tflint@v4
+
+      - name: Run TFLint
+        run: tflint --chdir=infra --recursive --format compact
+
+  functions:
+    name: Cloud Functions
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build every function
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mapfile -t package_files < <(find functions -mindepth 2 -maxdepth 2 -name package.json | sort)
+
+          if [ "${#package_files[@]}" -eq 0 ]; then
+            echo "No Cloud Function package.json files found."
+            exit 1
+          fi
+
+          for package_file in "${package_files[@]}"; do
+            function_dir="$(dirname "$package_file")"
+            echo "::group::${function_dir}"
+            npm --prefix "$function_dir" install
+            npm --prefix "$function_dir" run build
+            echo "::endgroup::"
+          done

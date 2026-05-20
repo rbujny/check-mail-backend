@@ -49,6 +49,7 @@ Terraform automatically discovers every `functions/*/function.json` file and dep
 
 Function conventions are documented in `docs/functions.md`.
 
+Pull request checks are documented in `docs/pr-checks.md`.
 
 ## Codex team setup
 
