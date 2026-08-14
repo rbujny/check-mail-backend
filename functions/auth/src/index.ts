@@ -1,4 +1,5 @@
 import { http } from "@google-cloud/functions-framework";
+import { createPrivateKey } from "node:crypto";
 import express, { type NextFunction, type Request, type Response } from "express";
 import jwt, { type JwtPayload, type SignOptions } from "jsonwebtoken";
 
@@ -65,16 +66,21 @@ const getDecodedPayload = (token: string): JwtPayload | null => {
   return decoded;
 };
 
+const getPrivateKey = (): ReturnType<typeof createPrivateKey> | null => {
+  const privateKey = process.env.JWT_PRIVATE_KEY?.replace(/\\n/gu, "\n");
+  return privateKey ? createPrivateKey(privateKey) : null;
+};
+
 app.post(
   "/",
   (
     req: Request<Record<string, never>, AuthSuccessResponse | AuthErrorResponse, TokenRequestBody>,
     res: Response<AuthSuccessResponse | AuthErrorResponse>
   ): void => {
-    const secret = process.env.JWT_SECRET;
-    if (!secret) {
+    const privateKey = getPrivateKey();
+    if (!privateKey) {
       res.status(500).json({
-        error: "JWT_SECRET environment variable is not configured.",
+        error: "JWT_PRIVATE_KEY environment variable is not configured with a valid RSA key.",
       });
       return;
     }
@@ -100,16 +106,6 @@ app.post(
       return;
     }
 
-    if (
-      body.claims !== undefined &&
-      (typeof body.claims !== "object" || body.claims === null || Array.isArray(body.claims))
-    ) {
-      res.status(400).json({
-        error: "Field 'claims' must be a JSON object when provided.",
-      });
-      return;
-    }
-
     const defaultExpiresIn = process.env.JWT_EXPIRES_IN ?? "1h";
     const expiresInSeconds = parseDurationSeconds(body.expiresIn ?? defaultExpiresIn);
 
@@ -120,19 +116,18 @@ app.post(
       return;
     }
 
-    const issuer = body.issuer ?? process.env.JWT_ISSUER ?? "checkmail-backend";
-    const audience = body.audience ?? process.env.JWT_AUDIENCE ?? "checkmail-clients";
-    const payload = {
-      ...(body.claims ?? {}),
-    };
+    const issuer = process.env.JWT_ISSUER ?? "checkmail-backend";
+    const audience = process.env.JWT_AUDIENCE ?? "checkmail-clients";
+    const payload = {};
     const signOptions: SignOptions = {
-      algorithm: "HS256",
+      algorithm: "RS256",
       audience,
       expiresIn: expiresInSeconds,
       issuer,
+      keyid: process.env.JWT_KEY_ID ?? "checkmail-primary",
       subject: body.subject,
     };
-    const token = jwt.sign(payload, secret, signOptions);
+    const token = jwt.sign(payload, privateKey, signOptions);
     const decodedPayload = getDecodedPayload(token);
 
     if (

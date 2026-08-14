@@ -9,6 +9,7 @@
   "environment_variables": {
     "JWT_ISSUER": "checkmail-backend",
     "JWT_AUDIENCE": "checkmail-clients",
-    "JWT_EXPIRES_IN": "1h"
+    "JWT_EXPIRES_IN": "1h",
+    "JWT_KEY_ID": "checkmail-primary"
   }
 }
