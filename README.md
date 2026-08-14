@@ -54,7 +54,7 @@ Function conventions are documented in `docs/functions.md`.
 
 The canonical backend API contract is documented in `docs/openapi.yaml`.
 
-API Gateway resources are defined in Terraform and remain optional until the processing backend and public JWKS URL are configured. Terraform routes `/token` to the repository's auto-discovered `auth` function. The gateway exposes:
+API Gateway resources are always provisioned by Terraform. A processing backend URL and public JWKS URL are required. Terraform routes `/token` to the repository's auto-discovered `auth` function. The gateway exposes:
 
 - `POST /token` without JWT authentication, using an API key for quota attribution
 - `POST /process` with API key and JWT authentication enforced by API Gateway
