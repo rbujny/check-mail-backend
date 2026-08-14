@@ -3,6 +3,11 @@ provider "google" {
   region  = var.region
 }
 
+provider "google-beta" {
+  project = var.project_id
+  region  = var.region
+}
+
 locals {
   function_config_files = fileset("${path.module}/../functions", "*/function.json")
 

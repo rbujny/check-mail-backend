@@ -1,0 +1,224 @@
+openapi: 3.0.3
+info:
+  title: CheckMail Backend API
+  version: 1.1.0
+  description: >
+    Canonical API contract for the backend that processes optimized email payloads
+    sent by the browser plugin. This spec is intended to be the basis for a future
+    GCP API Gateway configuration.
+servers:
+  - url: http://localhost:8080
+    description: Local development gateway
+paths:
+  /token:
+    post:
+      summary: Issue a JWT access token
+      description: Public token issuing route. It does not require an existing JWT.
+      operationId: issueToken
+      security:
+        - ApiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenRequest"
+      responses:
+        "200":
+          description: JWT issued successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "400":
+          description: Invalid token request.
+        "429":
+          description: Token request rate limit exceeded.
+  /process:
+    post:
+      summary: Process an email for phishing analysis
+      description: >
+        Accepts a normalized email payload from the plugin and returns a phishing
+        verdict used by the extension UI.
+      operationId: processEmail
+      security:
+        - ApiKey: []
+          JwtAuth: []
+      requestBody:
+        required: true
+        description: Normalized email payload prepared by the browser extension.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProcessedEmailData"
+      responses:
+        "200":
+          description: Email processed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcessEmailResponse"
+        "400":
+          description: Invalid JSON payload or schema validation error.
+        "401":
+          description: Missing or invalid JWT.
+        "429":
+          description: Processing request rate limit exceeded.
+        "405":
+          description: Method not allowed. Only POST is supported.
+components:
+  securitySchemes:
+    ApiKey:
+      type: apiKey
+      name: key
+      in: query
+      description: API consumer key used by GCP API Gateway for quota attribution.
+    JwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    TokenRequest:
+      type: object
+      required:
+        - subject
+      properties:
+        subject:
+          type: string
+        expiresIn:
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: string
+      additionalProperties: false
+    TokenResponse:
+      type: object
+      required:
+        - audience
+        - expiresAt
+        - issuedAt
+        - issuer
+        - subject
+        - token
+        - tokenType
+      properties:
+        audience:
+          type: string
+        expiresAt:
+          type: integer
+          format: int64
+        issuedAt:
+          type: integer
+          format: int64
+        issuer:
+          type: string
+        subject:
+          type: string
+        token:
+          type: string
+        tokenType:
+          type: string
+          enum: [Bearer]
+    ProcessedEmailHeaders:
+      type: object
+      description: >
+        Selected navigation headers only. Keys are lowercase and any unsupported
+        headers must be discarded before reaching the backend.
+      properties:
+        from:
+          type: string
+        to:
+          type: string
+        subject:
+          type: string
+        reply-to:
+          type: string
+        return-path:
+          type: string
+      additionalProperties: false
+      example:
+        from: "Scammer <attacker@phish.com>"
+        to: "victim@company.com"
+        subject: "Urgent: account blocked"
+        reply-to: "admin@phish-reply.com"
+        return-path: "<bounce@phish.com>"
+    SecurityVerdicts:
+      type: object
+      description: Parsed SPF, DKIM, and DMARC verdicts extracted from Authentication-Results.
+      properties:
+        spf:
+          type: string
+          enum: [pass, fail, softfail, none]
+        dkim:
+          type: string
+          enum: [pass, fail, none]
+        dmarc:
+          type: string
+          enum: [pass, fail, none]
+      additionalProperties: false
+    ProcessedEmailData:
+      type: object
+      required:
+        - headers
+        - receivedChain
+        - securityVerdicts
+        - body
+        - truncated
+        - links
+      properties:
+        headers:
+          $ref: "#/components/schemas/ProcessedEmailHeaders"
+        receivedChain:
+          type: array
+          description: Ordered list of all Received header values from the original email.
+          items:
+            type: string
+        securityVerdicts:
+          $ref: "#/components/schemas/SecurityVerdicts"
+        body:
+          type: string
+          description: Normalized plain-text email body with URLs replaced by [LINK].
+          maxLength: 1000
+        truncated:
+          type: boolean
+          description: True when the original body exceeded the max body length.
+        links:
+          type: array
+          description: Deduplicated list of extracted URLs.
+          maxItems: 50
+          items:
+            type: string
+            maxLength: 2048
+      example:
+        headers:
+          from: "Scammer <attacker@phish.com>"
+          to: "victim@company.com"
+          subject: "Urgent: account blocked"
+          reply-to: "admin@phish-reply.com"
+          return-path: "<bounce@phish.com>"
+        receivedChain:
+          - "from mx.phish.com by mx.company.com with ESMTPS id abc123"
+          - "from internal.phish.com by mx.phish.com with ESMTP id xyz789"
+        securityVerdicts:
+          spf: "fail"
+          dkim: "pass"
+          dmarc: "fail"
+        body: "Dear customer, your account was blocked. Log in here: [LINK]"
+        truncated: true
+        links:
+          - "https://phish.com/login-reset-token=123"
+          - "mailto:support@phish-reply.com"
+    ProcessEmailResponse:
+      type: object
+      required:
+        - result
+        - comment
+      properties:
+        result:
+          type: string
+          enum: [OK, WARNING, PHISHING]
+        comment:
+          type: string
+      example:
+        result: "WARNING"
+        comment: "The message contains suspicious sender and link mismatches."
