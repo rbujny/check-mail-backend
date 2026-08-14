@@ -16,3 +16,4 @@ infra/*.zip
 tools/terraform
 
 infra/.tfvars
+docs/backend-status.local.md
