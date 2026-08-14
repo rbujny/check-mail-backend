@@ -1,13 +1,11 @@
 variable "project_id" {
   description = "GCP project ID."
   type        = string
-  default     = "checkmailplugin"
 }
 
 variable "region" {
   description = "GCP region for the Cloud Function."
   type        = string
-  default     = "europe-west1"
 }
 
 variable "function_env_overrides" {
@@ -19,7 +17,12 @@ variable "function_env_overrides" {
 variable "db_password" {
   description = "Cloud SQL DB password"
   type        = string
-  default     = ""
+  sensitive   = true
+
+  validation {
+    condition     = length(var.db_password) > 0
+    error_message = "db_password must be provided by the deployment workflow."
+  }
 }
 
 variable "api_gateway_process_backend_url" {
@@ -35,22 +38,41 @@ variable "api_gateway_process_backend_url" {
 variable "api_gateway_jwt_issuer" {
   description = "JWT issuer accepted by API Gateway; must match JWT_ISSUER in the auth function."
   type        = string
-  default     = "checkmail-backend"
 }
 
 variable "api_gateway_jwt_audience" {
   description = "JWT audience accepted by API Gateway; must match JWT_AUDIENCE in the auth function."
   type        = string
-  default     = "checkmail-clients"
 }
 
-variable "api_gateway_jwt_jwks_uri" {
-  description = "Public HTTPS JWKS URL used by API Gateway to verify JWT signatures."
+variable "jwt_private_key" {
+  description = "RSA private key used by the auth function to sign JWTs."
+  type        = string
+  sensitive   = true
+
+  validation {
+    condition     = length(var.jwt_private_key) > 0
+    error_message = "jwt_private_key must be provided by the deployment workflow."
+  }
+}
+
+variable "jwt_key_id" {
+  description = "JWT key ID matching the public key entry in the JWKS document."
   type        = string
 
   validation {
-    condition     = startswith(var.api_gateway_jwt_jwks_uri, "https://")
-    error_message = "The JWKS URL must use HTTPS."
+    condition     = length(var.jwt_key_id) > 0
+    error_message = "jwt_key_id must not be empty."
+  }
+}
+
+variable "jwt_expires_in" {
+  description = "Default JWT lifetime used by the auth function, for example 1h."
+  type        = string
+
+  validation {
+    condition     = length(var.jwt_expires_in) > 0
+    error_message = "jwt_expires_in must not be empty."
   }
 }
 

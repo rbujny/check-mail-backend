@@ -1,0 +1,12 @@
+{
+  "keys": [
+    {
+      "kty": "RSA",
+      "use": "sig",
+      "alg": "RS256",
+      "kid": "checkmail-2026-08-14",
+      "n": "uBAo2_jEUL5XpQd8imdGzBj77P21tR3ft7AL0bs7lbP0pwF0ddb6kIVfJCtgIUffTgh5C_jzi02p_gYHFO-qPz9UnD8WmAUKkCLp_PGvZbFYn_bcWJP0f2wDuMOWzB-lk1l5uM34aDTXlJ4TVpzBi1cIi-hTCJwr8U3M9DhMIMZT5sRu_Q1Nn4QjYWPEB6TwG75puSNAT8LZQY7Em26x_LoXqJaiXruIGH5OlIPloJdoLk8evIe5r3v71Mzf3K_m8xrhr2kyTA87cNj0FxxbqZiD6kysnjTt2QidO_grItI3isharW_m6If-Ef89jALrCB9nFU5-Tn7PcKofaH2G8w",
+      "e": "AQAB"
+    }
+  ]
+}

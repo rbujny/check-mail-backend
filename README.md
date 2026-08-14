@@ -21,23 +21,40 @@ Basic GCP infrastructure setup for the backend using Terraform.
 - `functions/auth/` - JWT issuing HTTP function
 - `functions/common/email-processing/types.ts` - shared request/response contract types for email processing
 
-## First run
+## Deployment
 
-Before the first Terraform apply, create `infra/.tfvars` from `infra/.tfvars.example` and fill in all required values.
+The repository uses one shared GCP environment. Infrastructure deployment runs only through the manually triggered `.github/workflows/deploy.yml` GitHub Actions workflow.
 
-Current required values:
+Configure these GitHub repository secrets before running it:
 
-- `db_password`
+- `CHECKMAIL_GCP_CREDENTIALS_JSON`
+- `CHECKMAIL_PROJECT_ID`
+- `CHECKMAIL_REGION`
+- `CHECKMAIL_DB_PASSWORD`
+- `CHECKMAIL_API_GATEWAY_PROCESS_BACKEND_URL`
+- `CHECKMAIL_API_GATEWAY_JWT_ISSUER`
+- `CHECKMAIL_API_GATEWAY_JWT_AUDIENCE`
+- `CHECKMAIL_JWT_PRIVATE_KEY`
+- `CHECKMAIL_JWT_KEY_ID`
+- `CHECKMAIL_JWT_EXPIRES_IN`
 
-```powershell
-cd infra
-terraform init
-terraform apply
-```
+Start the deployment from GitHub Actions by selecting the `Deploy` workflow and choosing `Run workflow`. It runs Terraform formatting, initialization, validation, plan, and apply.
 
 The Terraform backend is configured to use the existing bucket:
 
 - `checkmail-plugin-dev-state`
+
+Do not run `terraform apply` locally against the shared environment.
+
+## Local development
+
+Local development is intended for Cloud Functions. Run a function from its own directory:
+
+```sh
+cd functions/basic-http
+npm install
+npm run start
+```
 
 ## Adding another function
 
@@ -63,7 +80,9 @@ Both routes have configurable per-minute, per-consumer-project quotas. Defaults 
 
 Clients cannot override the token issuer, audience, or add arbitrary claims. These values are controlled by backend configuration.
 
-Terraform creates a restricted client API key for quota attribution and a dedicated gateway service account with Cloud Functions Invoker access. Retrieve the key with `terraform output -raw api_gateway_client_key`. Configure `api_gateway_jwt_jwks_uri` with a public HTTPS JWKS document generated from the RSA public key matching `JWT_PRIVATE_KEY`.
+Terraform creates a restricted client API key for quota attribution and a dedicated gateway service account with Cloud Functions Invoker access. Retrieve the key with `terraform output -raw api_gateway_client_key`.
+
+The public key is stored in `infra/jwks.json`. Terraform publishes it from a dedicated public Cloud Storage bucket in the same GCP project and configures API Gateway to use that URL. The matching private key is supplied only through the `CHECKMAIL_JWT_PRIVATE_KEY` GitHub Secret.
 
 Pull request checks are documented in `docs/pr-checks.md`.
 

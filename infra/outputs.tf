@@ -32,3 +32,8 @@ output "api_gateway_backend_service_account" {
   description = "Service account used by API Gateway to invoke backend services."
   value       = google_service_account.api_gateway_backend.email
 }
+
+output "jwt_jwks_uri" {
+  description = "Public Cloud Storage URL used by API Gateway to verify JWT signatures."
+  value       = local.jwt_jwks_uri
+}

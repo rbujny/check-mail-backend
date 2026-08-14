@@ -11,6 +11,8 @@ The Terraform job runs:
 - `terraform validate -no-color`
 - `tflint --chdir=infra --recursive --format compact`
 
+PR checks and the manual deployment workflow use Terraform 1.14.6.
+
 The workflow initializes Terraform without the remote backend, so PR validation does not need access to the GCS state bucket.
 
 ## Prettier
@@ -32,3 +34,7 @@ npm --prefix <function-directory> run build
 ```
 
 Each function should keep its `build` script wired to TypeScript compilation so PR checks catch type errors before deployment.
+
+## Deployment
+
+PR checks never deploy infrastructure. Shared infrastructure is deployed only by manually running `.github/workflows/deploy.yml` after changes are merged and the required GitHub Secrets are configured.

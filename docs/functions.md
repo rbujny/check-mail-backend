@@ -40,5 +40,17 @@ Use local function files for logic that is specific to a single endpoint.
 ## Secrets and configuration
 
 - keep secrets outside the repository
-- inject environment variables through Terraform
+- store deployment secrets in GitHub Secrets and inject them through the manual deployment workflow and Terraform
 - document new required environment variables in `README.md`
+
+## Local development
+
+Run functions locally only for development and debugging:
+
+```sh
+cd functions/<name>
+npm install
+npm run start
+```
+
+Shared infrastructure deployments must go through the manual GitHub Actions deployment workflow.

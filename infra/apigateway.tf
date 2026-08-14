@@ -71,7 +71,7 @@ resource "google_api_gateway_api_config" "checkmail" {
           auth_backend_url              = google_cloudfunctions2_function.functions["auth"].service_config[0].uri
           jwt_audience                  = var.api_gateway_jwt_audience
           jwt_issuer                    = var.api_gateway_jwt_issuer
-          jwt_jwks_uri                  = var.api_gateway_jwt_jwks_uri
+          jwt_jwks_uri                  = local.jwt_jwks_uri
           process_backend_url           = var.api_gateway_process_backend_url
           process_rate_limit_per_minute = var.api_gateway_process_rate_limit_per_minute
           token_rate_limit_per_minute   = var.api_gateway_token_rate_limit_per_minute
@@ -88,6 +88,8 @@ resource "google_api_gateway_api_config" "checkmail" {
     google_apikeys_key.gateway_client,
     google_project_iam_member.api_gateway_function_invoker,
     google_project_service.api_gateway_required,
+    google_storage_bucket_iam_member.jwt_jwks_public,
+    google_storage_bucket_object.jwt_jwks,
   ]
 }
 

@@ -37,6 +37,7 @@ resource "google_project_service" "required" {
     "cloudfunctions.googleapis.com",
     "logging.googleapis.com",
     "run.googleapis.com",
+    "storage.googleapis.com",
   ])
 
   project            = var.project_id
@@ -92,10 +93,20 @@ resource "google_cloudfunctions2_function" "functions" {
   service_config {
     available_memory               = each.value.available_memory
     all_traffic_on_latest_revision = true
-    environment_variables          = merge(each.value.environment_variables, lookup(var.function_env_overrides, each.key, {}))
-    ingress_settings               = each.value.ingress_settings
-    max_instance_count             = each.value.max_instance_count
-    timeout_seconds                = each.value.timeout_seconds
+    environment_variables = merge(
+      each.value.environment_variables,
+      each.key == "auth" ? {
+        JWT_AUDIENCE    = var.api_gateway_jwt_audience
+        JWT_EXPIRES_IN  = var.jwt_expires_in
+        JWT_ISSUER      = var.api_gateway_jwt_issuer
+        JWT_KEY_ID      = var.jwt_key_id
+        JWT_PRIVATE_KEY = var.jwt_private_key
+      } : {},
+      lookup(var.function_env_overrides, each.key, {}),
+    )
+    ingress_settings   = each.value.ingress_settings
+    max_instance_count = each.value.max_instance_count
+    timeout_seconds    = each.value.timeout_seconds
   }
 
   depends_on = [google_project_service.required]
