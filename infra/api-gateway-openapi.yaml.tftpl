@@ -1,0 +1,199 @@
+openapi: 3.0.3
+info:
+  title: CheckMail Backend API Gateway
+  version: 1.1.0
+  description: API Gateway routing, JWT authentication, and quota contract.
+x-google-api-management:
+  metrics:
+    token_requests:
+      displayName: Token requests
+    process_requests:
+      displayName: Process requests
+  quota:
+    limits:
+      token_requests_limit:
+        metric: token_requests
+        values: ${token_rate_limit_per_minute}
+      process_requests_limit:
+        metric: process_requests
+        values: ${process_rate_limit_per_minute}
+  backends:
+    auth_backend:
+      address: ${auth_backend_url}
+      jwtAudience: ${auth_backend_url}
+      protocol: h2
+      pathTranslation: CONSTANT_ADDRESS
+    process_backend:
+      address: ${process_backend_url}
+      jwtAudience: ${process_backend_url}
+      protocol: h2
+      pathTranslation: APPEND_PATH_TO_ADDRESS
+paths:
+  /token:
+    post:
+      summary: Issue a JWT access token
+      operationId: issueToken
+      security:
+        - ApiKey: []
+      x-google-backend: auth_backend
+      x-google-quota:
+        token_requests: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenRequest"
+      responses:
+        "200":
+          description: JWT issued successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "400":
+          description: Invalid token request.
+        "429":
+          description: Token request rate limit exceeded.
+  /process:
+    post:
+      summary: Process an email for phishing analysis
+      operationId: processEmail
+      security:
+        - ApiKey: []
+          JwtAuth: []
+      x-google-backend: process_backend
+      x-google-quota:
+        process_requests: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProcessedEmailData"
+      responses:
+        "200":
+          description: Email processed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcessEmailResponse"
+        "400":
+          description: Invalid JSON payload or schema validation error.
+        "401":
+          description: Missing or invalid JWT.
+        "429":
+          description: Processing request rate limit exceeded.
+components:
+  securitySchemes:
+    ApiKey:
+      type: apiKey
+      name: key
+      in: query
+    JwtAuth:
+      type: oauth2
+      flows:
+        implicit:
+          authorizationUrl: ""
+          scopes: {}
+      x-google-auth:
+        issuer: ${jwt_issuer}
+        jwksUri: ${jwt_jwks_uri}
+        audiences:
+          - ${jwt_audience}
+        jwtLocations:
+          - header: Authorization
+            valuePrefix: "Bearer "
+  schemas:
+    TokenRequest:
+      type: object
+      required: [subject]
+      properties:
+        subject:
+          type: string
+        expiresIn:
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: string
+      additionalProperties: false
+    TokenResponse:
+      type: object
+      required: [audience, expiresAt, issuedAt, issuer, subject, token, tokenType]
+      properties:
+        audience:
+          type: string
+        expiresAt:
+          type: integer
+          format: int64
+        issuedAt:
+          type: integer
+          format: int64
+        issuer:
+          type: string
+        subject:
+          type: string
+        token:
+          type: string
+        tokenType:
+          type: string
+          enum: [Bearer]
+    ProcessedEmailHeaders:
+      type: object
+      properties:
+        from:
+          type: string
+        to:
+          type: string
+        subject:
+          type: string
+        reply-to:
+          type: string
+        return-path:
+          type: string
+      additionalProperties: false
+    SecurityVerdicts:
+      type: object
+      properties:
+        spf:
+          type: string
+          enum: [pass, fail, softfail, none]
+        dkim:
+          type: string
+          enum: [pass, fail, none]
+        dmarc:
+          type: string
+          enum: [pass, fail, none]
+      additionalProperties: false
+    ProcessedEmailData:
+      type: object
+      required: [headers, receivedChain, securityVerdicts, body, truncated, links]
+      properties:
+        headers:
+          $ref: "#/components/schemas/ProcessedEmailHeaders"
+        receivedChain:
+          type: array
+          items:
+            type: string
+        securityVerdicts:
+          $ref: "#/components/schemas/SecurityVerdicts"
+        body:
+          type: string
+          maxLength: 1000
+        truncated:
+          type: boolean
+        links:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            maxLength: 2048
+    ProcessEmailResponse:
+      type: object
+      required: [result, comment]
+      properties:
+        result:
+          type: string
+          enum: [OK, WARNING, PHISHING]
+        comment:
+          type: string
