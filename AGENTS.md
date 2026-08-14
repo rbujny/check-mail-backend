@@ -6,6 +6,7 @@ Collaboration rules for this repository:
 - update `README.md` when backend behavior, usage, or deployment changes
 - write all `.md` files in English
 - all documentation should be placed in `/docs`
+- keep `docs/backend-status.local.md` updated after every repository change that adds, removes, or modifies backend functionality so it remains the current local work-status reference
 
 ## Functions
 - keep new Cloud Functions in `functions/<name>`

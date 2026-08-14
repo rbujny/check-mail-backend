@@ -14,9 +14,12 @@ Basic GCP infrastructure setup for the backend using Terraform.
 ## Structure
 
 - `docs/` - repository documentation
+- `docs/openapi.yaml` - canonical API contract for future gateway integration
 - `infra/` - Terraform configuration
+- `infra/apigateway.tf` - optional API Gateway definition for the public REST entrypoint
 - `functions/basic-http/` - healthcheck HTTP function
 - `functions/auth/` - JWT issuing HTTP function
+- `functions/common/email-processing/types.ts` - shared request/response contract types for email processing
 
 ## First run
 
@@ -48,6 +51,19 @@ To add a new function, create a new directory under `functions/` with:
 Terraform automatically discovers every `functions/*/function.json` file and deploys it as a separate Cloud Function Gen2.
 
 Function conventions are documented in `docs/functions.md`.
+
+The canonical backend API contract is documented in `docs/openapi.yaml`.
+
+API Gateway resources are defined in Terraform and remain optional until the processing backend and public JWKS URL are configured. Terraform routes `/token` to the repository's auto-discovered `auth` function. The gateway exposes:
+
+- `POST /token` without JWT authentication, using an API key for quota attribution
+- `POST /process` with API key and JWT authentication enforced by API Gateway
+
+Both routes have configurable per-minute, per-consumer-project quotas. Defaults are 10 token requests and 60 processing requests. The auth function signs tokens with RS256 and requires `JWT_PRIVATE_KEY`; its issuer and audience must match the corresponding API Gateway variables.
+
+Clients cannot override the token issuer, audience, or add arbitrary claims. These values are controlled by backend configuration.
+
+Terraform creates a restricted client API key for quota attribution and a dedicated gateway service account with Cloud Functions Invoker access. Retrieve the key with `terraform output -raw api_gateway_client_key`. Configure `api_gateway_jwt_jwks_uri` with a public HTTPS JWKS document generated from the RSA public key matching `JWT_PRIVATE_KEY`.
 
 Pull request checks are documented in `docs/pr-checks.md`.
 
