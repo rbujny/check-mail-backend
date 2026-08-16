@@ -9,6 +9,7 @@ concurrency:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   terraform:
@@ -19,7 +20,8 @@ jobs:
         working-directory: infra
     env:
       TF_INPUT: "false"
-      CHECKMAIL_GCP_CREDENTIALS_JSON: ${{ secrets.CHECKMAIL_GCP_CREDENTIALS_JSON }}
+      GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      GCP_DEPLOY_SERVICE_ACCOUNT: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
       TF_VAR_project_id: ${{ secrets.CHECKMAIL_PROJECT_ID }}
       TF_VAR_region: ${{ secrets.CHECKMAIL_REGION }}
       TF_VAR_db_password: ${{ secrets.CHECKMAIL_DB_PASSWORD }}
@@ -37,7 +39,8 @@ jobs:
         shell: bash
         run: |
           required=(
-            CHECKMAIL_GCP_CREDENTIALS_JSON
+            GCP_WORKLOAD_IDENTITY_PROVIDER
+            GCP_DEPLOY_SERVICE_ACCOUNT
             TF_VAR_project_id
             TF_VAR_region
             TF_VAR_db_password
@@ -51,7 +54,7 @@ jobs:
 
           for name in "${required[@]}"; do
             if [ -z "${!name}" ]; then
-              echo "::error::$name is missing. Configure the matching CHECKMAIL_* GitHub Secret."
+              echo "::error::$name is missing. Configure the matching GitHub Variable or CHECKMAIL_* Secret."
               exit 1
             fi
           done
@@ -59,7 +62,9 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
         with:
-          credentials_json: ${{ env.CHECKMAIL_GCP_CREDENTIALS_JSON }}
+          project_id: ${{ secrets.CHECKMAIL_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v4
