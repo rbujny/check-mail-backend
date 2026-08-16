@@ -24,6 +24,7 @@ resource "google_sql_database_instance" "postgres" {
     disk_autoresize   = false
     disk_size         = 10
     disk_type         = "PD_SSD"
+    edition           = "ENTERPRISE"
     tier              = local.cloudsql_postgres_tier
 
     ip_configuration {

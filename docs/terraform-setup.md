@@ -57,12 +57,14 @@ The workflow runs:
 2. `terraform init -input=false`
 3. `terraform validate -no-color`
 4. `terraform plan -input=false -no-color -out=tfplan`
-5. `terraform apply -input=false -auto-approve tfplan`
+5. `terraform apply -input=false -auto-approve -parallelism=1 tfplan`
+
+Apply is serialized because multiple Cloud Functions Gen2 created concurrently can race while Google Cloud initializes their shared regional source bucket.
 
 Do not run `terraform apply` locally against the shared environment.
 
 ## PostgreSQL setup
 
-Terraform provisions a single-zone PostgreSQL instance, application database, and application user. The database password is provided through `CHECKMAIL_DB_PASSWORD`.
+Terraform provisions a single-zone PostgreSQL Enterprise instance using the shared-core `db-f1-micro` tier, an application database, and an application user. The edition is explicit because PostgreSQL 16 and newer otherwise default to Enterprise Plus, which does not support shared-core tiers. The database password is provided through `CHECKMAIL_DB_PASSWORD`.
 
 Review `infra/cloudsql.tf` before changing database sizing, networking, or naming.

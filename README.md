@@ -44,6 +44,8 @@ Configure these GitHub repository secrets before running it:
 
 Start the deployment from GitHub Actions by selecting the `Deploy` workflow and choosing `Run workflow`. It runs Terraform formatting, initialization, validation, plan, and apply.
 
+Terraform deploys PostgreSQL 18 as an explicit Cloud SQL Enterprise instance using the shared-core `db-f1-micro` tier. Apply runs serially to avoid concurrent Cloud Functions Gen2 initialization races.
+
 The Terraform backend is configured to use the existing bucket:
 
 - `checkmail-plugin-backend-dev-state`
