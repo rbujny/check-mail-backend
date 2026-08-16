@@ -4,7 +4,7 @@ Basic GCP infrastructure setup for the backend using Terraform.
 
 ## What is included
 
-- Terraform backend stored in GCS bucket `checkmail-plugin-dev-state`
+- Terraform backend stored in GCS bucket `checkmail-plugin-backend-dev-state`
 - Basic Google Cloud Functions Gen2 deployment
 - Cloud SQL for PostgreSQL setup
 - TypeScript HTTP function source
