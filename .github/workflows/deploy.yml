@@ -25,7 +25,6 @@ jobs:
       TF_VAR_project_id: ${{ secrets.CHECKMAIL_PROJECT_ID }}
       TF_VAR_region: ${{ secrets.CHECKMAIL_REGION }}
       TF_VAR_db_password: ${{ secrets.CHECKMAIL_DB_PASSWORD }}
-      TF_VAR_api_gateway_process_backend_url: ${{ secrets.CHECKMAIL_API_GATEWAY_PROCESS_BACKEND_URL }}
       TF_VAR_api_gateway_jwt_issuer: ${{ secrets.CHECKMAIL_API_GATEWAY_JWT_ISSUER }}
       TF_VAR_api_gateway_jwt_audience: ${{ secrets.CHECKMAIL_API_GATEWAY_JWT_AUDIENCE }}
       TF_VAR_jwt_private_key: ${{ secrets.CHECKMAIL_JWT_PRIVATE_KEY }}
@@ -44,7 +43,6 @@ jobs:
             TF_VAR_project_id
             TF_VAR_region
             TF_VAR_db_password
-            TF_VAR_api_gateway_process_backend_url
             TF_VAR_api_gateway_jwt_issuer
             TF_VAR_api_gateway_jwt_audience
             TF_VAR_jwt_private_key

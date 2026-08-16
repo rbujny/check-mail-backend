@@ -27,7 +27,7 @@ x-google-api-management:
       address: ${process_backend_url}
       jwtAudience: ${process_backend_url}
       protocol: h2
-      pathTranslation: APPEND_PATH_TO_ADDRESS
+      pathTranslation: CONSTANT_ADDRESS
 paths:
   /token:
     post:

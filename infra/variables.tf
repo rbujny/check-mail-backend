@@ -25,16 +25,6 @@ variable "db_password" {
   }
 }
 
-variable "api_gateway_process_backend_url" {
-  description = "HTTPS backend URL that should serve POST /process behind API Gateway."
-  type        = string
-
-  validation {
-    condition     = startswith(var.api_gateway_process_backend_url, "https://")
-    error_message = "The process backend URL must use HTTPS."
-  }
-}
-
 variable "api_gateway_jwt_issuer" {
   description = "JWT issuer accepted by API Gateway; must match JWT_ISSUER in the auth function."
   type        = string
