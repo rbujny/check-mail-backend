@@ -1,6 +1,6 @@
 terraform {
   backend "gcs" {
-    bucket = "checkmail-plugin-dev-state"
+    bucket = "checkmail-plugin-backend-dev-state"
     prefix = "terraform/dev"
   }
 }

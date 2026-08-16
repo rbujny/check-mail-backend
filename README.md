@@ -42,7 +42,7 @@ Start the deployment from GitHub Actions by selecting the `Deploy` workflow and 
 
 The Terraform backend is configured to use the existing bucket:
 
-- `checkmail-plugin-dev-state`
+- `checkmail-plugin-backend-dev-state`
 
 Do not run `terraform apply` locally against the shared environment.
 
