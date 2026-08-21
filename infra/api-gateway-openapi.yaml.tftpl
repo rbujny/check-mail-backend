@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: CheckMail Backend API Gateway
-  version: 1.1.0
+  version: 1.2.0
   description: API Gateway routing, JWT authentication, and quota contract.
 x-google-api-management:
   metrics:
@@ -58,6 +58,7 @@ paths:
   /process:
     post:
       summary: Process an email for phishing analysis
+      description: Run deterministic authentication, identity, link, and content heuristics.
       operationId: processEmail
       security:
         - ApiKey: []

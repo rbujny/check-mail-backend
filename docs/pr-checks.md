@@ -27,13 +27,13 @@ Run `npm run format` locally before opening a pull request when Markdown, YAML, 
 
 ## Cloud Functions
 
-The Cloud Functions job discovers every `functions/*/package.json` file, installs dependencies, and runs:
+The Cloud Functions job discovers every `functions/*/package.json` file and installs dependencies. If a function defines a `test` script, the workflow runs:
 
 ```sh
-npm --prefix <function-directory> run build
+npm --prefix <function-directory> test
 ```
 
-Each function should keep its `build` script wired to TypeScript compilation so PR checks catch type errors before deployment.
+Otherwise, it runs the function's `build` script. Each function should keep its `build` script wired to TypeScript compilation so PR checks catch type errors before deployment. This also ensures the process-function heuristic tests run on every pull request.
 
 ## Deployment
 

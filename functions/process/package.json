@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc",
     "gcp-build": "npm run build",
-    "start": "functions-framework --target=processHttp"
+    "start": "functions-framework --target=processHttp",
+    "test": "npm run build && node --test dist/*.test.js"
   },
   "dependencies": {
     "@google-cloud/functions-framework": "^3.4.5",

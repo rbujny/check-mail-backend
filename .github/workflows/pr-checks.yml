@@ -70,7 +70,7 @@ jobs:
         with:
           node-version: 20
 
-      - name: Build every function
+      - name: Build and test every function
         shell: bash
         run: |
           set -euo pipefail
@@ -86,6 +86,11 @@ jobs:
             function_dir="$(dirname "$package_file")"
             echo "::group::${function_dir}"
             npm --prefix "$function_dir" install
-            npm --prefix "$function_dir" run build
+            test_script="$(npm --prefix "$function_dir" pkg get scripts.test)"
+            if [ "$test_script" = "{}" ]; then
+              npm --prefix "$function_dir" run build
+            else
+              npm --prefix "$function_dir" test
+            fi
             echo "::endgroup::"
           done

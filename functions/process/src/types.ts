@@ -33,3 +33,57 @@ export type ProcessEmailResponse = {
 export type ProcessEmailErrorResponse = {
   error: string;
 };
+
+export type HeuristicFindingCode =
+  | "AUTH_ALL_PASS"
+  | "DKIM_FAIL"
+  | "DKIM_NONE"
+  | "DMARC_FAIL"
+  | "DMARC_NONE"
+  | "EMPTY_RECEIVED_CHAIN"
+  | "FROM_ADDRESS_INVALID"
+  | "LINK_EXCESSIVE_SUBDOMAINS"
+  | "LINK_EXTERNAL_DOMAIN"
+  | "LINK_INSECURE_HTTP"
+  | "LINK_INVALID"
+  | "LINK_IP_HOST"
+  | "LINK_MAILTO_DOMAIN_MISMATCH"
+  | "LINK_MULTIPLE_TECHNICAL_INDICATORS"
+  | "LINK_MULTIPLE_DOMAINS"
+  | "LINK_NON_STANDARD_PORT"
+  | "LINK_PUNYCODE_HOST"
+  | "LINK_USERINFO"
+  | "MESSAGE_CREDENTIAL_LANGUAGE"
+  | "MESSAGE_PAYMENT_LANGUAGE"
+  | "MESSAGE_THREAT_LANGUAGE"
+  | "MESSAGE_URGENCY_AND_ACTION"
+  | "IDENTITY_CREDENTIAL_LINK_COMBINATION"
+  | "REPLY_TO_DOMAIN_MISMATCH"
+  | "RETURN_PATH_DOMAIN_MISMATCH"
+  | "SPF_FAIL"
+  | "SPF_NONE"
+  | "SPF_SOFTFAIL";
+
+export type HeuristicFinding = {
+  code: HeuristicFindingCode;
+  score: number;
+  message: string;
+};
+
+export type AnalysisResult = {
+  score: number;
+  result: ProcessEmailResponse["result"];
+  findings: HeuristicFinding[];
+  comment: string;
+};
+
+export type ProcessRequestResult =
+  | {
+      status: 200;
+      body: ProcessEmailResponse;
+      analysis: AnalysisResult;
+    }
+  | {
+      status: 400;
+      body: ProcessEmailErrorResponse;
+    };

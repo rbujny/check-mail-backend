@@ -19,7 +19,7 @@ Basic GCP infrastructure setup for the backend using Terraform.
 - `infra/apigateway.tf` - optional API Gateway definition for the public REST entrypoint
 - `functions/basic-http/` - healthcheck HTTP function
 - `functions/auth/` - JWT issuing HTTP function
-- `functions/process/` - placeholder email processing HTTP function
+- `functions/process/` - heuristic email phishing analysis HTTP function
 - `functions/common/email-processing/types.ts` - shared request/response contract types for email processing
 
 ## Deployment
@@ -84,7 +84,7 @@ API Gateway resources are always provisioned by Terraform. Terraform routes `/to
 
 Both routes have configurable per-minute, per-consumer-project quotas. Defaults are 10 token requests and 60 processing requests. The auth function signs tokens with RS256 and requires `JWT_PRIVATE_KEY`; its issuer and audience must match the corresponding API Gateway variables.
 
-The processing function currently validates the documented request contract and returns a conservative placeholder `WARNING` result. It does not perform phishing analysis yet.
+The processing function validates the documented request contract and performs deterministic heuristic analysis of authentication verdicts, sender-domain alignment, links, and message language. It returns `OK`, `WARNING`, or `PHISHING` without calling external services or persisting message data. Rule weights, thresholds, privacy behavior, and current limitations are documented in `docs/heuristic-analysis.md`.
 
 Clients cannot override the token issuer, audience, or add arbitrary claims. These values are controlled by backend configuration.
 

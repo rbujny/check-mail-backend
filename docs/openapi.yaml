@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: CheckMail Backend API
-  version: 1.1.0
+  version: 1.2.0
   description: >
     Canonical API contract for the backend that processes optimized email payloads
     sent by the browser plugin. This spec is intended to be the basis for a future
@@ -39,7 +39,8 @@ paths:
       summary: Process an email for phishing analysis
       description: >
         Accepts a normalized email payload from the plugin and returns a phishing
-        verdict used by the extension UI.
+        verdict produced by deterministic authentication, identity, link, and
+        content heuristics for use by the extension UI.
       operationId: processEmail
       security:
         - ApiKey: []
