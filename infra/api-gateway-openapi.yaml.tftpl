@@ -1,32 +1,32 @@
-openapi: 3.0.3
+openapi: 3.0.4
 info:
   title: CheckMail Backend API Gateway
   version: 1.2.0
   description: API Gateway routing, JWT authentication, and quota contract.
 x-google-api-management:
   metrics:
-    token_requests:
+    token-requests:
       displayName: Token requests
-    process_requests:
+    process-requests:
       displayName: Process requests
   quota:
     limits:
-      token_requests_limit:
-        metric: token_requests
+      token-requests-limit:
+        metric: token-requests
         values: ${token_rate_limit_per_minute}
-      process_requests_limit:
-        metric: process_requests
+      process-requests-limit:
+        metric: process-requests
         values: ${process_rate_limit_per_minute}
   backends:
     auth_backend:
       address: ${auth_backend_url}
       jwtAudience: ${auth_backend_url}
-      protocol: h2
+      protocol: "http/1.1"
       pathTranslation: CONSTANT_ADDRESS
     process_backend:
       address: ${process_backend_url}
       jwtAudience: ${process_backend_url}
-      protocol: h2
+      protocol: "http/1.1"
       pathTranslation: CONSTANT_ADDRESS
 paths:
   /token:
@@ -37,7 +37,7 @@ paths:
         - ApiKey: []
       x-google-backend: auth_backend
       x-google-quota:
-        token_requests: 1
+        token-requests: 1
       requestBody:
         required: true
         content:
@@ -65,7 +65,7 @@ paths:
           JwtAuth: []
       x-google-backend: process_backend
       x-google-quota:
-        process_requests: 1
+        process-requests: 1
       requestBody:
         required: true
         content:

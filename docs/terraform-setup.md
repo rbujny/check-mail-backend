@@ -49,6 +49,8 @@ The public JWKS is versioned in `infra/jwks.json` and published by Terraform fro
 
 The `/process` backend URL is derived directly from the Terraform-managed `process` Cloud Function and does not require a repository secret.
 
+API Gateway uses OpenAPI 3.0.4. Quota identifiers use hyphens as required by Service Management, and Cloud Run Functions backends use HTTP/1.1. The latter avoids selecting the RPC security-policy path used by H2 backends while preserving authenticated invocation through the gateway service account.
+
 ## Terraform flow
 
 The workflow runs:
