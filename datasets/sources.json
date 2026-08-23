@@ -1,0 +1,22 @@
+{
+  "sources": [
+    {
+      "id": "llmgen-phishing",
+      "label": "phishing",
+      "license": "Apache-2.0",
+      "url": "https://huggingface.co/datasets/Dizzzy0x00/LLMGen-Phishing-Email-Dataset/resolve/main/GPT_Phishing_Email_dataset.csv"
+    },
+    {
+      "id": "spamassassin-easy-ham",
+      "label": "safe",
+      "license": "Public research corpus; message copyrights retained by original senders",
+      "url": "https://spamassassin.apache.org/old/publiccorpus/20030228_easy_ham.tar.bz2"
+    },
+    {
+      "id": "spamassassin-hard-ham",
+      "label": "safe",
+      "license": "Public research corpus; message copyrights retained by original senders",
+      "url": "https://spamassassin.apache.org/old/publiccorpus/20030228_hard_ham.tar.bz2"
+    }
+  ]
+}

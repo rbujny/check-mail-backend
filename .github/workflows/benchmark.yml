@@ -1,0 +1,63 @@
+name: Benchmark LLM pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_records:
+        description: Maximum online records per model variant
+        required: true
+        default: "500"
+      corpus_version:
+        description: RAG corpus version already imported into Firestore
+        required: true
+        default: v1
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: functions/process/package-lock.json
+
+      - name: Prepare public evaluation dataset
+        run: python tools/datasets/prepare_public_dataset.py
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ secrets.CHECKMAIL_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - name: Install process dependencies
+        working-directory: functions/process
+        run: npm ci
+
+      - name: Run online benchmark
+        working-directory: functions/process
+        env:
+          BENCHMARK_MAX_RECORDS: ${{ inputs.max_records }}
+          GOOGLE_CLOUD_PROJECT: ${{ secrets.CHECKMAIL_PROJECT_ID }}
+          RAG_CORPUS_VERSION: ${{ inputs.corpus_version }}
+          GEMMA_ENDPOINT: ${{ vars.GEMMA_ENDPOINT }}
+          GEMMA_MODEL_ID: ${{ vars.GEMMA_MODEL_ID }}
+        run: npm run benchmark -- ../../datasets/generated/evaluation.jsonl benchmark-report.json
+
+      - name: Upload benchmark report
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkmail-benchmark-${{ inputs.corpus_version }}
+          path: functions/process/benchmark-report.json

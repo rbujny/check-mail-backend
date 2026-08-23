@@ -1,0 +1,58 @@
+name: Sync RAG corpus
+
+on:
+  workflow_dispatch:
+    inputs:
+      corpus_version:
+        description: Version assigned to imported Firestore documents
+        required: true
+        default: v1
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: functions/process/package-lock.json
+
+      - name: Prepare public datasets
+        run: python tools/datasets/prepare_public_dataset.py
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ secrets.CHECKMAIL_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - name: Install process dependencies
+        working-directory: functions/process
+        run: npm ci
+
+      - name: Import RAG corpus
+        working-directory: functions/process
+        env:
+          GOOGLE_CLOUD_PROJECT: ${{ secrets.CHECKMAIL_PROJECT_ID }}
+          VERTEX_LOCATION: global
+          RAG_CORPUS_VERSION: ${{ inputs.corpus_version }}
+        run: npm run rag:ingest -- ../../datasets/generated/rag-corpus.jsonl
+
+      - name: Upload normalized evaluation set
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkmail-evaluation-${{ inputs.corpus_version }}
+          path: datasets/generated/evaluation.jsonl
+          retention-days: 30

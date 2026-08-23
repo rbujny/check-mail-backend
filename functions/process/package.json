@@ -7,7 +7,9 @@
     "build": "tsc",
     "gcp-build": "npm run build",
     "start": "functions-framework --target=processHttp",
-    "test": "npm run build && node --test dist/*.test.js"
+    "test": "npm run build && node --test dist/*.test.js",
+    "rag:ingest": "npm run build && node dist/rag-ingest.js",
+    "benchmark": "npm run build && node dist/benchmark.js"
   },
   "dependencies": {
     "@google-cloud/firestore": "^7.11.5",
