@@ -1,7 +1,7 @@
 import { http } from "@google-cloud/functions-framework";
 import express, { type NextFunction, type Request, type Response } from "express";
 
-import { processRequest } from "./process-request";
+import { processRequest, type ProcessDependencies } from "./process-request";
 import type { ProcessEmailErrorResponse, ProcessEmailResponse } from "./types";
 
 export const app = express();
@@ -23,30 +23,42 @@ app.use((req: Request, res: Response, next: NextFunction): void => {
   next();
 });
 
-export const processPostHandler = (
+export const createProcessPostHandler = (dependencies?: ProcessDependencies) => (
   req: Request<Record<string, never>, ProcessEmailResponse | ProcessEmailErrorResponse, unknown>,
   res: Response<ProcessEmailResponse | ProcessEmailErrorResponse>
-): void => {
+): Promise<void> => {
   const startedAt = Date.now();
-  const result = processRequest(req.body);
+  return processRequest(req.body, dependencies).then((result) => {
 
-  if (result.status === 400) {
+    if (result.status !== 200) {
+      res.status(result.status).json(result.body);
+      return;
+    }
+
+    console.info(
+      JSON.stringify({
+        event: "email_analysis_completed",
+        route: result.pipeline.route,
+        heuristicResult: result.pipeline.analysis.result,
+        heuristicScore: result.pipeline.analysis.score,
+        findingCodes: result.pipeline.analysis.findings.map((finding) => finding.code),
+        result: result.body.result,
+        provider: result.pipeline.llm?.provider,
+        model: result.pipeline.llm?.model,
+        confidence: result.pipeline.llm?.assessment.confidence,
+        inputTokens: result.pipeline.llm?.usage.inputTokens,
+        outputTokens: result.pipeline.llm?.usage.outputTokens,
+        ragCorpusVersion: result.pipeline.rag?.corpusVersion,
+        ragHitCount: result.pipeline.rag?.documents.length,
+        durationMs: Date.now() - startedAt,
+      })
+    );
+
     res.status(result.status).json(result.body);
-    return;
-  }
-
-  console.info(
-    JSON.stringify({
-      event: "email_analysis_completed",
-      result: result.analysis.result,
-      score: result.analysis.score,
-      findingCodes: result.analysis.findings.map((finding) => finding.code),
-      durationMs: Date.now() - startedAt,
-    })
-  );
-
-  res.status(result.status).json(result.body);
+  });
 };
+
+export const processPostHandler = createProcessPostHandler();
 
 export const methodNotAllowedHandler = (
   _req: Request,

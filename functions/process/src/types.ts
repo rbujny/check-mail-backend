@@ -34,6 +34,47 @@ export type ProcessEmailErrorResponse = {
   error: string;
 };
 
+export type LlmScanResult = ProcessEmailResponse["result"];
+
+export type LlmAssessment = {
+  result: LlmScanResult;
+  confidence: number;
+  comment: string;
+  signals: string[];
+};
+
+export type ModelUsage = {
+  inputTokens?: number;
+  outputTokens?: number;
+};
+
+export type ModelAssessment = {
+  assessment: LlmAssessment;
+  model: string;
+  provider: string;
+  usage: ModelUsage;
+};
+
+export type RagDocument = {
+  id: string;
+  label: "safe" | "phishing";
+  text: string;
+  source: string;
+};
+
+export type RagRetrievalResult = {
+  documents: RagDocument[];
+  corpusVersion: string;
+};
+
+export type AnalysisPipelineResult = {
+  body: ProcessEmailResponse;
+  analysis: AnalysisResult;
+  llm?: ModelAssessment;
+  rag?: RagRetrievalResult;
+  route: "heuristic" | "llm";
+};
+
 export type HeuristicFindingCode =
   | "AUTH_ALL_PASS"
   | "DKIM_FAIL"
@@ -81,9 +122,13 @@ export type ProcessRequestResult =
   | {
       status: 200;
       body: ProcessEmailResponse;
-      analysis: AnalysisResult;
+      pipeline: AnalysisPipelineResult;
     }
   | {
       status: 400;
+      body: ProcessEmailErrorResponse;
+    }
+  | {
+      status: 503;
       body: ProcessEmailErrorResponse;
     };

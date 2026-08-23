@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { NextFunction, Request, Response } from "express";
 
-import { errorHandler, methodNotAllowedHandler, processPostHandler } from "./index";
+import { createProcessPostHandler, errorHandler, methodNotAllowedHandler } from "./index";
 import { createValidRequest } from "./test-fixtures";
 import type { ProcessEmailErrorResponse, ProcessEmailResponse } from "./types";
 
@@ -39,7 +39,7 @@ const createResponse = (): CapturedResponse => {
   };
 };
 
-test("POST handler returns 200 for a valid payload", () => {
+test("POST handler returns 503 when the configured model is unavailable", async () => {
   const request = { body: createValidRequest() } as Request<
     Record<string, never>,
     ProcessEmailResponse | ProcessEmailErrorResponse,
@@ -47,16 +47,22 @@ test("POST handler returns 200 for a valid payload", () => {
   >;
   const captured = createResponse();
 
-  processPostHandler(request, captured.response);
+  const processPostHandler = createProcessPostHandler({
+    modelProvider: {
+      async assess() {
+        throw new Error("Vertex unavailable");
+      },
+    },
+  });
+  await processPostHandler(request, captured.response);
 
-  assert.equal(captured.statusCode, 200);
+  assert.equal(captured.statusCode, 503);
   assert.deepEqual(captured.body, {
-    result: "OK",
-    comment: "No significant phishing indicators were detected by the current heuristic rules.",
+    error: "Analysis service temporarily unavailable.",
   });
 });
 
-test("POST handler returns 400 for an invalid payload", () => {
+test("POST handler returns 400 for an invalid payload", async () => {
   const request = { body: {} } as Request<
     Record<string, never>,
     ProcessEmailResponse | ProcessEmailErrorResponse,
@@ -64,7 +70,14 @@ test("POST handler returns 400 for an invalid payload", () => {
   >;
   const captured = createResponse();
 
-  processPostHandler(request, captured.response);
+  const processPostHandler = createProcessPostHandler({
+    modelProvider: {
+      async assess() {
+        throw new Error("must not be called");
+      },
+    },
+  });
+  await processPostHandler(request, captured.response);
 
   assert.equal(captured.statusCode, 400);
 });
