@@ -15,6 +15,7 @@ Basic GCP infrastructure setup for the backend using Terraform.
 
 - `docs/` - repository documentation
 - `docs/openapi.yaml` - canonical API contract for future gateway integration
+- `docs/postman/` - Postman collection, environment template, and execution guide
 - `infra/` - Terraform configuration
 - `infra/apigateway.tf` - optional API Gateway definition for the public REST entrypoint
 - `functions/basic-http/` - healthcheck HTTP function

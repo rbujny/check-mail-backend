@@ -1,0 +1,959 @@
+{
+  "info": {
+    "_postman_id": "33b7a068-10bf-4b3c-8ef6-209ad6ff8a49",
+    "name": "CheckMail Backend API",
+    "description": "End-to-end tests for the GCP API Gateway /token and /process routes. Run folders in order because the authentication request stores jwtToken in the selected environment.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{jwtToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const baseUrl = pm.environment.get('baseUrl');",
+          "const apiKey = pm.environment.get('apiKey');",
+          "if (!baseUrl) { throw new Error('Set baseUrl in the selected Postman environment.'); }",
+          "if (!apiKey) { throw new Error('Set apiKey in the selected Postman environment.'); }",
+          "pm.collectionVariables.set('gatewayUrl', String(baseUrl).replace(/\\/+$/, ''));",
+          "pm.variables.unset('expectedResult');",
+          "pm.variables.unset('expectedComment');",
+          "pm.variables.unset('expectedError');",
+          "pm.variables.unset('expectedStatuses');"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const expectedStatuses = JSON.parse(pm.variables.get('expectedStatuses') || '[200]');",
+          "pm.test(`status is one of ${expectedStatuses.join(', ')}`, () => {",
+          "  pm.expect(expectedStatuses).to.include(pm.response.code);",
+          "});",
+          "const maxResponseTimeMs = Number(pm.environment.get('maxResponseTimeMs') || 10000);",
+          "pm.test(`response time is below ${maxResponseTimeMs} ms`, () => {",
+          "  pm.expect(pm.response.responseTime).to.be.below(maxResponseTimeMs);",
+          "});",
+          "const expectedResult = pm.variables.get('expectedResult');",
+          "const expectedComment = pm.variables.get('expectedComment');",
+          "const expectedError = pm.variables.get('expectedError');",
+          "if (expectedResult || expectedError) {",
+          "  let payload;",
+          "  pm.test('response body is valid JSON', () => { payload = pm.response.json(); });",
+          "  if (expectedResult) {",
+          "    pm.test('response matches ProcessEmailResponse', () => {",
+          "      payload = payload || pm.response.json();",
+          "      pm.expect(Object.keys(payload).sort()).to.deep.equal(['comment', 'result']);",
+          "      pm.expect(payload.result).to.equal(expectedResult);",
+          "      pm.expect(payload.comment).to.be.a('string').and.not.empty;",
+          "      pm.expect(payload.comment).not.to.match(/https?:\\/\\//i);",
+          "      if (expectedComment) pm.expect(payload.comment).to.equal(expectedComment);",
+          "    });",
+          "  }",
+          "  if (expectedError) {",
+          "    pm.test('response matches ProcessEmailErrorResponse', () => {",
+          "      payload = payload || pm.response.json();",
+          "      pm.expect(payload).to.deep.equal({ error: expectedError });",
+          "    });",
+          "  }",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "gatewayUrl",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "00 Authentication",
+      "description": "Run this folder first. The successful response stores jwtToken in the selected environment.",
+      "item": [
+        {
+          "name": "Issue JWT token",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.variables.set('expectedStatuses', '[200]');"]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const payload = pm.response.json();",
+                  "pm.test('token response has the required contract', () => {",
+                  "  pm.expect(payload.tokenType).to.equal('Bearer');",
+                  "  pm.expect(payload.subject).to.equal(pm.environment.get('subject'));",
+                  "  pm.expect(payload.token).to.be.a('string').and.not.empty;",
+                  "  pm.expect(payload.token.split('.')).to.have.lengthOf(3);",
+                  "  pm.expect(payload.expiresAt).to.be.above(payload.issuedAt);",
+                  "});",
+                  "pm.environment.set('jwtToken', payload.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"{{subject}}\",\n  \"expiresIn\": \"1h\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/token?key={{apiKey}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["token"],
+              "query": [
+                {
+                  "key": "key",
+                  "value": "{{apiKey}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "01 Heuristic classifications",
+      "item": [
+        {
+          "name": "OK - authenticated message with aligned domain",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('expectedStatuses', '[200]');",
+                  "pm.variables.set('expectedResult', 'OK');",
+                  "pm.variables.set('expectedComment', 'No significant phishing indicators were detected by the current heuristic rules.');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"headers\": {\n    \"from\": \"Sender <sender@example.com>\",\n    \"to\": \"recipient@example.net\",\n    \"subject\": \"Project status\"\n  },\n  \"receivedChain\": [\"from mail.example.com by mx.example.net with ESMTPS\"],\n  \"securityVerdicts\": { \"spf\": \"pass\", \"dkim\": \"pass\", \"dmarc\": \"pass\" },\n  \"body\": \"The weekly project status is attached.\",\n  \"truncated\": false,\n  \"links\": [\"https://example.com/status\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/process?key={{apiKey}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["process"],
+              "query": [{ "key": "key", "value": "{{apiKey}}" }]
+            }
+          }
+        },
+        {
+          "name": "OK - missing authentication verdicts only",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('expectedStatuses', '[200]');",
+                  "pm.variables.set('expectedResult', 'OK');",
+                  "pm.variables.set('expectedComment', 'Low-risk indicators: SPF verification is unavailable. DKIM verification is unavailable. DMARC verification is unavailable.');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"headers\": { \"from\": \"sender@example.com\", \"subject\": \"Status\" },\n  \"receivedChain\": [\"from mail.example.com by mx.example.net\"],\n  \"securityVerdicts\": { \"spf\": \"none\", \"dkim\": \"none\", \"dmarc\": \"none\" },\n  \"body\": \"Regular status message.\",\n  \"truncated\": false,\n  \"links\": [\"https://example.com/status\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/process?key={{apiKey}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["process"],
+              "query": [{ "key": "key", "value": "{{apiKey}}" }]
+            }
+          }
+        },
+        {
+          "name": "WARNING - DKIM failure",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('expectedStatuses', '[200]');",
+                  "pm.variables.set('expectedResult', 'WARNING');",
+                  "pm.variables.set('expectedComment', 'DKIM verification failed.');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"headers\": { \"from\": \"sender@example.com\", \"subject\": \"Status\" },\n  \"receivedChain\": [\"from mail.example.com by mx.example.net\"],\n  \"securityVerdicts\": { \"spf\": \"pass\", \"dkim\": \"fail\", \"dmarc\": \"pass\" },\n  \"body\": \"Regular status message.\",\n  \"truncated\": false,\n  \"links\": [\"https://example.com/status\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/process?key={{apiKey}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["process"],
+              "query": [{ "key": "key", "value": "{{apiKey}}" }]
+            }
+          }
+        },
+        {
+          "name": "WARNING - direct IP link over HTTP",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('expectedStatuses', '[200]');",
+                  "pm.variables.set('expectedResult', 'WARNING');",
+                  "pm.variables.set('expectedComment', 'A link points directly to an IP address. A link points to a domain different from the sender. A link uses unencrypted HTTP.');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"headers\": { \"from\": \"sender@example.com\", \"subject\": \"Status\" },\n  \"receivedChain\": [\"from mail.example.com by mx.example.net\"],\n  \"securityVerdicts\": { \"spf\": \"pass\", \"dkim\": \"pass\", \"dmarc\": \"pass\" },\n  \"body\": \"Review the attached information.\",\n  \"truncated\": false,\n  \"links\": [\"http://192.0.2.1/login\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/process?key={{apiKey}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["process"],
+              "query": [{ "key": "key", "value": "{{apiKey}}" }]
+            }
+          }
+        },
+        {
+          "name": "WARNING - empty Received chain and unavailable authentication",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('expectedStatuses', '[200]');",
+                  "pm.variables.set('expectedResult', 'WARNING');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"headers\": { \"from\": \"sender@example.com\", \"subject\": \"Status\" },\n  \"receivedChain\": [],\n  \"securityVerdicts\": { \"spf\": \"none\", \"dkim\": \"none\", \"dmarc\": \"none\" },\n  \"body\": \"Regular status message.\",\n  \"truncated\": false,\n  \"links\": []\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/process?key={{apiKey}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["process"],
+              "query": [{ "key": "key", "value": "{{apiKey}}" }]
+            }
+          }
+        },
+        {
+          "name": "PHISHING - SPF and DMARC failures",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('expectedStatuses', '[200]');",
+                  "pm.variables.set('expectedResult', 'PHISHING');",
+                  "pm.variables.set('expectedComment', 'DMARC verification failed. SPF verification failed.');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"headers\": { \"from\": \"sender@example.com\", \"subject\": \"Status\" },\n  \"receivedChain\": [\"from unknown.test by mx.example.net\"],\n  \"securityVerdicts\": { \"spf\": \"fail\", \"dkim\": \"pass\", \"dmarc\": \"fail\" },\n  \"body\": \"Regular status message.\",\n  \"truncated\": false,\n  \"links\": []\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/process?key={{apiKey}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["process"],
+              "query": [{ "key": "key", "value": "{{apiKey}}" }]
+            }
+          }
+        },
+        {
+          "name": "PHISHING - identity and credential combination",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('expectedStatuses', '[200]');",
+                  "pm.variables.set('expectedResult', 'PHISHING');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"headers\": {\n    \"from\": \"Support <support@example.com>\",\n    \"reply-to\": \"recovery@attacker.test\",\n    \"subject\": \"Urgent account verification\"\n  },\n  \"receivedChain\": [\"from mail.example.com by mx.example.net\"],\n  \"securityVerdicts\": { \"spf\": \"pass\", \"dkim\": \"pass\", \"dmarc\": \"pass\" },\n  \"body\": \"Click now to verify your password and avoid losing access.\",\n  \"truncated\": false,\n  \"links\": [\"https://attacker.test/login\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/process?key={{apiKey}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["process"],
+              "query": [{ "key": "key", "value": "{{apiKey}}" }]
+            }
+          }
+        },
+        {
+          "name": "PHISHING - obfuscated punycode URL",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('expectedStatuses', '[200]');",
+                  "pm.variables.set('expectedResult', 'PHISHING');",
+                  "pm.variables.set('expectedComment', 'A link contains misleading user information. A link uses an encoded international domain. A link combines multiple techniques commonly used to obscure its destination.');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"headers\": { \"from\": \"sender@example.com\", \"subject\": \"Status\" },\n  \"receivedChain\": [\"from mail.example.com by mx.example.net\"],\n  \"securityVerdicts\": { \"spf\": \"pass\", \"dkim\": \"pass\", \"dmarc\": \"pass\" },\n  \"body\": \"Review the information.\",\n  \"truncated\": false,\n  \"links\": [\"https://trusted.example.com@xn--paypa-4ve.test:8443/login\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/process?key={{apiKey}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["process"],
+              "query": [{ "key": "key", "value": "{{apiKey}}" }]
+            }
+          }
+        },
+        {
+          "name": "WARNING - Polish urgency and account language",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('expectedStatuses', '[200]');",
+                  "pm.variables.set('expectedResult', 'WARNING');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"headers\": { \"from\": \"support@example.com\", \"subject\": \"Pilne potwierdzenie konta\" },\n  \"receivedChain\": [\"from mail.example.com by mx.example.net\"],\n  \"securityVerdicts\": { \"spf\": \"pass\", \"dkim\": \"pass\", \"dmarc\": \"pass\" },\n  \"body\": \"Kliknij, aby potwierdź konto. Konto zostanie zablokowane.\",\n  \"truncated\": false,\n  \"links\": [\"https://login.attacker.test\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/process?key={{apiKey}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["process"],
+              "query": [{ "key": "key", "value": "{{apiKey}}" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Contract validation",
+      "item": [
+        {
+          "name": "Missing required links field",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('expectedStatuses', '[400]');",
+                  "pm.variables.set('expectedError', 'Request body does not match the ProcessedEmailData contract.');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"headers\": {},\n  \"receivedChain\": [],\n  \"securityVerdicts\": {},\n  \"body\": \"\",\n  \"truncated\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/process?key={{apiKey}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["process"],
+              "query": [{ "key": "key", "value": "{{apiKey}}" }]
+            }
+          }
+        },
+        {
+          "name": "Unsupported top-level field",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('expectedStatuses', '[400]');",
+                  "pm.variables.set('expectedError', 'Request body does not match the ProcessedEmailData contract.');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"headers\": {},\n  \"receivedChain\": [],\n  \"securityVerdicts\": {},\n  \"body\": \"\",\n  \"truncated\": false,\n  \"links\": [],\n  \"rawEmail\": \"not accepted\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/process?key={{apiKey}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["process"],
+              "query": [{ "key": "key", "value": "{{apiKey}}" }]
+            }
+          }
+        },
+        {
+          "name": "Invalid authentication verdict enum",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('expectedStatuses', '[400]');",
+                  "pm.variables.set('expectedError', 'Request body does not match the ProcessedEmailData contract.');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"headers\": {},\n  \"receivedChain\": [],\n  \"securityVerdicts\": { \"spf\": \"unknown\" },\n  \"body\": \"\",\n  \"truncated\": false,\n  \"links\": []\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/process?key={{apiKey}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["process"],
+              "query": [{ "key": "key", "value": "{{apiKey}}" }]
+            }
+          }
+        },
+        {
+          "name": "Malformed JSON",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('expectedStatuses', '[400]');",
+                  "pm.variables.set('expectedError', 'Request body must be valid JSON.');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"headers\": ",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/process?key={{apiKey}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["process"],
+              "query": [{ "key": "key", "value": "{{apiKey}}" }]
+            }
+          }
+        },
+        {
+          "name": "JSON array instead of object",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('expectedStatuses', '[400]');",
+                  "pm.variables.set('expectedError', 'Request body does not match the ProcessedEmailData contract.');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "[]",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/process?key={{apiKey}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["process"],
+              "query": [{ "key": "key", "value": "{{apiKey}}" }]
+            }
+          }
+        },
+        {
+          "name": "Body at 1000-character boundary",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('expectedStatuses', '[200]');",
+                  "pm.variables.set('expectedResult', 'OK');",
+                  "pm.variables.set('generatedPayload', JSON.stringify({ headers: { from: 'sender@example.com' }, receivedChain: ['from mail.example.com by mx.example.net'], securityVerdicts: { spf: 'pass', dkim: 'pass', dmarc: 'pass' }, body: 'x'.repeat(1000), truncated: false, links: [] }));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{{generatedPayload}}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/process?key={{apiKey}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["process"],
+              "query": [{ "key": "key", "value": "{{apiKey}}" }]
+            }
+          }
+        },
+        {
+          "name": "Body exceeds 1000 characters",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('expectedStatuses', '[400]');",
+                  "pm.variables.set('expectedError', 'Request body does not match the ProcessedEmailData contract.');",
+                  "pm.variables.set('generatedPayload', JSON.stringify({ headers: {}, receivedChain: [], securityVerdicts: {}, body: 'x'.repeat(1001), truncated: true, links: [] }));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{{generatedPayload}}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/process?key={{apiKey}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["process"],
+              "query": [{ "key": "key", "value": "{{apiKey}}" }]
+            }
+          }
+        },
+        {
+          "name": "Exactly 50 links are accepted",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('expectedStatuses', '[200]');",
+                  "pm.variables.set('expectedResult', 'OK');",
+                  "pm.variables.set('generatedPayload', JSON.stringify({ headers: { from: 'sender@example.com' }, receivedChain: ['from mail.example.com by mx.example.net'], securityVerdicts: { spf: 'pass', dkim: 'pass', dmarc: 'pass' }, body: '', truncated: false, links: Array.from({ length: 50 }, (_, index) => `https://example.com/${index}`) }));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{{generatedPayload}}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/process?key={{apiKey}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["process"],
+              "query": [{ "key": "key", "value": "{{apiKey}}" }]
+            }
+          }
+        },
+        {
+          "name": "More than 50 links",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('expectedStatuses', '[400]');",
+                  "pm.variables.set('expectedError', 'Request body does not match the ProcessedEmailData contract.');",
+                  "pm.variables.set('generatedPayload', JSON.stringify({ headers: {}, receivedChain: [], securityVerdicts: {}, body: '', truncated: false, links: Array.from({ length: 51 }, (_, index) => `https://example.com/${index}`) }));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{{generatedPayload}}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/process?key={{apiKey}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["process"],
+              "query": [{ "key": "key", "value": "{{apiKey}}" }]
+            }
+          }
+        },
+        {
+          "name": "Link exceeds 2048 characters",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('expectedStatuses', '[400]');",
+                  "pm.variables.set('expectedError', 'Request body does not match the ProcessedEmailData contract.');",
+                  "pm.variables.set('generatedPayload', JSON.stringify({ headers: {}, receivedChain: [], securityVerdicts: {}, body: '', truncated: false, links: [`https://example.com/${'x'.repeat(2049)}`] }));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{{generatedPayload}}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/process?key={{apiKey}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["process"],
+              "query": [{ "key": "key", "value": "{{apiKey}}" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Gateway security and routing",
+      "item": [
+        {
+          "name": "Missing JWT",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.variables.set('expectedStatuses', '[401]');"]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"headers\": {},\n  \"receivedChain\": [],\n  \"securityVerdicts\": {},\n  \"body\": \"\",\n  \"truncated\": false,\n  \"links\": []\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/process?key={{apiKey}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["process"],
+              "query": [{ "key": "key", "value": "{{apiKey}}" }]
+            }
+          }
+        },
+        {
+          "name": "Invalid JWT",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.variables.set('expectedStatuses', '[401]');"]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "invalid.jwt.token", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"headers\": {},\n  \"receivedChain\": [],\n  \"securityVerdicts\": {},\n  \"body\": \"\",\n  \"truncated\": false,\n  \"links\": []\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/process?key={{apiKey}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["process"],
+              "query": [{ "key": "key", "value": "{{apiKey}}" }]
+            }
+          }
+        },
+        {
+          "name": "Missing API key",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.variables.set('expectedStatuses', '[400,401,403]');"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"headers\": {},\n  \"receivedChain\": [],\n  \"securityVerdicts\": {},\n  \"body\": \"\",\n  \"truncated\": false,\n  \"links\": []\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/process",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["process"]
+            }
+          }
+        },
+        {
+          "name": "Invalid API key",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.variables.set('expectedStatuses', '[400,401,403]');"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"headers\": {},\n  \"receivedChain\": [],\n  \"securityVerdicts\": {},\n  \"body\": \"\",\n  \"truncated\": false,\n  \"links\": []\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/process?key=invalid-api-key",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["process"],
+              "query": [{ "key": "key", "value": "invalid-api-key" }]
+            }
+          }
+        },
+        {
+          "name": "GET method is rejected",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.variables.set('expectedStatuses', '[404,405]');"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayUrl}}/process?key={{apiKey}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["process"],
+              "query": [{ "key": "key", "value": "{{apiKey}}" }]
+            }
+          }
+        },
+        {
+          "name": "Unknown route is rejected",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.variables.set('expectedStatuses', '[404]');"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/unknown?key={{apiKey}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["unknown"],
+              "query": [{ "key": "key", "value": "{{apiKey}}" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Rate limiting (manual runner)",
+      "description": "Run this folder with at least 65 rapid iterations after obtaining a JWT. The test accepts normal responses until API Gateway starts returning 429.",
+      "item": [
+        {
+          "name": "Process quota probe",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.info.iteration === 0) pm.environment.unset('processQuota429Seen');",
+                  "pm.variables.set('expectedStatuses', '[200,429]');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 429) pm.environment.set('processQuota429Seen', 'true');",
+                  "if (pm.info.iterationCount >= 60 && pm.info.iteration === pm.info.iterationCount - 1) {",
+                  "  pm.test('at least one request was rate limited', () => {",
+                  "    pm.expect(pm.environment.get('processQuota429Seen')).to.equal('true');",
+                  "  });",
+                  "  pm.environment.unset('processQuota429Seen');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"headers\": { \"from\": \"sender@example.com\" },\n  \"receivedChain\": [\"from mail.example.com by mx.example.net\"],\n  \"securityVerdicts\": { \"spf\": \"pass\", \"dkim\": \"pass\", \"dmarc\": \"pass\" },\n  \"body\": \"Quota probe\",\n  \"truncated\": false,\n  \"links\": []\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/process?key={{apiKey}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["process"],
+              "query": [{ "key": "key", "value": "{{apiKey}}" }]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
