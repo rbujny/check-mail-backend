@@ -33,6 +33,11 @@ output "api_gateway_backend_service_account" {
   value       = google_service_account.api_gateway_backend.email
 }
 
+output "process_service_account" {
+  description = "Service account used by the process function for Vertex AI and Firestore."
+  value       = google_service_account.process.email
+}
+
 output "jwt_jwks_uri" {
   description = "Public Cloud Storage URL used by API Gateway to verify JWT signatures."
   value       = local.jwt_jwks_uri

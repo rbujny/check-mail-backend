@@ -20,6 +20,50 @@ resource "google_firestore_database" "default" {
   depends_on = [google_project_service.firestore]
 }
 
+resource "google_firestore_index" "rag_vector" {
+  project     = var.project_id
+  database    = google_firestore_database.default.name
+  collection  = var.rag_collection
+  query_scope = "COLLECTION"
+
+  fields {
+    field_path = "__name__"
+    order      = "ASCENDING"
+  }
+
+  fields {
+    field_path = "corpusVersion"
+    order      = "ASCENDING"
+  }
+
+  fields {
+    field_path = "embedding"
+
+    vector_config {
+      dimension = var.rag_embedding_dimension
+      flat {}
+    }
+  }
+}
+
+resource "google_service_account" "process" {
+  project      = var.project_id
+  account_id   = "checkmail-process"
+  display_name = "CheckMail Process Function"
+}
+
+resource "google_project_iam_member" "process_permissions" {
+  for_each = toset([
+    "roles/aiplatform.user",
+    "roles/datastore.viewer",
+    "roles/logging.logWriter",
+  ])
+
+  project = var.project_id
+  role    = each.value
+  member  = "serviceAccount:${google_service_account.process.email}"
+}
+
 output "firestore_database_id" {
   description = "Firestore database ID."
   value       = google_firestore_database.default.name

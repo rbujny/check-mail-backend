@@ -14,6 +14,71 @@ variable "function_env_overrides" {
   default     = {}
 }
 
+variable "llm_provider" {
+  description = "Active production LLM provider for non-phishing heuristic results."
+  type        = string
+  default     = "gemini"
+
+  validation {
+    condition     = contains(["gemini", "claude", "openai-compatible"], var.llm_provider)
+    error_message = "llm_provider must be gemini, claude, or openai-compatible."
+  }
+}
+
+variable "llm_model_id" {
+  description = "Active production model ID."
+  type        = string
+  default     = "gemini-3.5-flash-lite"
+}
+
+variable "llm_timeout_ms" {
+  description = "Total timeout for one model or embedding request in milliseconds."
+  type        = number
+  default     = 10000
+}
+
+variable "vertex_ai_location" {
+  description = "Vertex AI location used by the production model and embedding endpoint."
+  type        = string
+  default     = "global"
+}
+
+variable "rag_enabled" {
+  description = "Whether production analysis retrieves Firestore vector context before calling the LLM."
+  type        = bool
+  default     = true
+}
+
+variable "rag_collection" {
+  description = "Firestore collection containing versioned RAG documents."
+  type        = string
+  default     = "checkmail_rag_documents"
+}
+
+variable "rag_corpus_version" {
+  description = "Active RAG corpus version."
+  type        = string
+  default     = "v1"
+}
+
+variable "rag_top_k" {
+  description = "Maximum number of nearest RAG documents supplied to the model."
+  type        = number
+  default     = 5
+}
+
+variable "rag_embedding_model_id" {
+  description = "Vertex AI embedding model used for corpus and query vectors."
+  type        = string
+  default     = "gemini-embedding-001"
+}
+
+variable "rag_embedding_dimension" {
+  description = "Embedding dimension shared by Vertex AI and the Firestore vector index."
+  type        = number
+  default     = 768
+}
+
 variable "db_password" {
   description = "Cloud SQL DB password"
   type        = string

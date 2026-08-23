@@ -1,7 +1,7 @@
 openapi: 3.0.4
 info:
   title: CheckMail Backend API Gateway
-  version: 1.2.0
+  version: 1.3.0
   description: API Gateway routing, JWT authentication, and quota contract.
 x-google-api-management:
   metrics:
@@ -25,6 +25,7 @@ x-google-api-management:
       pathTranslation: CONSTANT_ADDRESS
     process_backend:
       address: ${process_backend_url}
+      deadline: 55.0
       jwtAudience: ${process_backend_url}
       protocol: "http/1.1"
       pathTranslation: CONSTANT_ADDRESS
@@ -58,7 +59,7 @@ paths:
   /process:
     post:
       summary: Process an email for phishing analysis
-      description: Run deterministic authentication, identity, link, and content heuristics.
+      description: Run the cost-aware heuristic, RAG, and LLM phishing-analysis pipeline.
       operationId: processEmail
       security:
         - ApiKey: []
@@ -85,6 +86,8 @@ paths:
           description: Missing or invalid JWT.
         "429":
           description: Processing request rate limit exceeded.
+        "503":
+          description: The LLM or RAG dependency is temporarily unavailable.
 components:
   securitySchemes:
     ApiKey:
