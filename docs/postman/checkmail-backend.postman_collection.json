@@ -27,6 +27,7 @@
           "if (!apiKey) { throw new Error('Set apiKey in the selected Postman environment.'); }",
           "pm.collectionVariables.set('gatewayUrl', String(baseUrl).replace(/\\/+$/, ''));",
           "pm.variables.unset('expectedResult');",
+          "pm.variables.unset('expectedResults');",
           "pm.variables.unset('expectedComment');",
           "pm.variables.unset('expectedError');",
           "pm.variables.unset('expectedStatuses');"
@@ -47,16 +48,17 @@
           "  pm.expect(pm.response.responseTime).to.be.below(maxResponseTimeMs);",
           "});",
           "const expectedResult = pm.variables.get('expectedResult');",
+          "const expectedResults = JSON.parse(pm.variables.get('expectedResults') || (expectedResult ? JSON.stringify([expectedResult]) : '[]'));",
           "const expectedComment = pm.variables.get('expectedComment');",
           "const expectedError = pm.variables.get('expectedError');",
-          "if (expectedResult || expectedError) {",
+          "if (expectedResults.length || expectedError) {",
           "  let payload;",
           "  pm.test('response body is valid JSON', () => { payload = pm.response.json(); });",
-          "  if (expectedResult) {",
+          "  if (expectedResults.length) {",
           "    pm.test('response matches ProcessEmailResponse', () => {",
           "      payload = payload || pm.response.json();",
           "      pm.expect(Object.keys(payload).sort()).to.deep.equal(['comment', 'result']);",
-          "      pm.expect(payload.result).to.equal(expectedResult);",
+          "      pm.expect(expectedResults).to.include(payload.result);",
           "      pm.expect(payload.comment).to.be.a('string').and.not.empty;",
           "      pm.expect(payload.comment).not.to.match(/https?:\\/\\//i);",
           "      if (expectedComment) pm.expect(payload.comment).to.equal(expectedComment);",
@@ -159,8 +161,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.variables.set('expectedStatuses', '[200]');",
-                  "pm.variables.set('expectedResult', 'OK');",
-                  "pm.variables.set('expectedComment', 'No significant phishing indicators were detected by the current heuristic rules.');"
+                  "pm.variables.set('expectedResults', '[\"OK\",\"WARNING\",\"PHISHING\"]');"
                 ]
               }
             }
@@ -190,8 +191,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.variables.set('expectedStatuses', '[200]');",
-                  "pm.variables.set('expectedResult', 'OK');",
-                  "pm.variables.set('expectedComment', 'Low-risk indicators: SPF verification is unavailable. DKIM verification is unavailable. DMARC verification is unavailable.');"
+                  "pm.variables.set('expectedResults', '[\"OK\",\"WARNING\",\"PHISHING\"]');"
                 ]
               }
             }
@@ -221,8 +221,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.variables.set('expectedStatuses', '[200]');",
-                  "pm.variables.set('expectedResult', 'WARNING');",
-                  "pm.variables.set('expectedComment', 'DKIM verification failed.');"
+                  "pm.variables.set('expectedResults', '[\"OK\",\"WARNING\",\"PHISHING\"]');"
                 ]
               }
             }
@@ -252,8 +251,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.variables.set('expectedStatuses', '[200]');",
-                  "pm.variables.set('expectedResult', 'WARNING');",
-                  "pm.variables.set('expectedComment', 'A link points directly to an IP address. A link points to a domain different from the sender. A link uses unencrypted HTTP.');"
+                  "pm.variables.set('expectedResults', '[\"OK\",\"WARNING\",\"PHISHING\"]');"
                 ]
               }
             }
@@ -283,7 +281,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.variables.set('expectedStatuses', '[200]');",
-                  "pm.variables.set('expectedResult', 'WARNING');"
+                  "pm.variables.set('expectedResults', '[\"OK\",\"WARNING\",\"PHISHING\"]');"
                 ]
               }
             }
@@ -405,7 +403,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.variables.set('expectedStatuses', '[200]');",
-                  "pm.variables.set('expectedResult', 'WARNING');"
+                  "pm.variables.set('expectedResults', '[\"OK\",\"WARNING\",\"PHISHING\"]');"
                 ]
               }
             }
@@ -590,7 +588,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.variables.set('expectedStatuses', '[200]');",
-                  "pm.variables.set('expectedResult', 'OK');",
+                  "pm.variables.set('expectedResults', '[\"OK\",\"WARNING\",\"PHISHING\"]');",
                   "pm.variables.set('generatedPayload', JSON.stringify({ headers: { from: 'sender@example.com' }, receivedChain: ['from mail.example.com by mx.example.net'], securityVerdicts: { spf: 'pass', dkim: 'pass', dmarc: 'pass' }, body: 'x'.repeat(1000), truncated: false, links: [] }));"
                 ]
               }
@@ -652,7 +650,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.variables.set('expectedStatuses', '[200]');",
-                  "pm.variables.set('expectedResult', 'OK');",
+                  "pm.variables.set('expectedResults', '[\"OK\",\"WARNING\",\"PHISHING\"]');",
                   "pm.variables.set('generatedPayload', JSON.stringify({ headers: { from: 'sender@example.com' }, receivedChain: ['from mail.example.com by mx.example.net'], securityVerdicts: { spf: 'pass', dkim: 'pass', dmarc: 'pass' }, body: '', truncated: false, links: Array.from({ length: 50 }, (_, index) => `https://example.com/${index}`) }));"
                 ]
               }

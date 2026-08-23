@@ -10,6 +10,9 @@ Basic GCP infrastructure setup for the backend using Terraform.
 - TypeScript HTTP function source
 - Auto-discovery of functions from the `functions/*/function.json` files
 - Express-wrapped handlers registered with `@google-cloud/functions-framework`
+- Cost-aware heuristic, RAG, and LLM phishing-classification pipeline
+- Firestore vector index and a dedicated least-privilege processing service account
+- Manual public-dataset preparation, RAG synchronization, and model benchmark workflows
 
 ## Structure
 
@@ -20,7 +23,7 @@ Basic GCP infrastructure setup for the backend using Terraform.
 - `infra/apigateway.tf` - optional API Gateway definition for the public REST entrypoint
 - `functions/basic-http/` - healthcheck HTTP function
 - `functions/auth/` - JWT issuing HTTP function
-- `functions/process/` - heuristic email phishing analysis HTTP function
+- `functions/process/` - heuristic, RAG, and LLM email phishing analysis HTTP function
 - `functions/common/email-processing/types.ts` - shared request/response contract types for email processing
 
 ## Deployment
@@ -85,7 +88,11 @@ API Gateway resources are always provisioned by Terraform. Terraform routes `/to
 
 Both routes have configurable per-minute, per-consumer-project quotas. Defaults are 10 token requests and 60 processing requests. The auth function signs tokens with RS256 and requires `JWT_PRIVATE_KEY`; its issuer and audience must match the corresponding API Gateway variables.
 
-The processing function validates the documented request contract and performs deterministic heuristic analysis of authentication verdicts, sender-domain alignment, links, and message language. It returns `OK`, `WARNING`, or `PHISHING` without calling external services or persisting message data. Rule weights, thresholds, privacy behavior, and current limitations are documented in `docs/heuristic-analysis.md`.
+The processing function validates the documented request contract and performs deterministic heuristic analysis of authentication verdicts, sender-domain alignment, links, and message language. Decisive heuristic phishing results return immediately. Clean and warning results use versioned Firestore vector retrieval and the configured Vertex AI model before returning `OK`, `WARNING`, or `PHISHING`. The public response remains limited to `result` and `comment`; dependency failures return `503` and message content is not persisted or logged. Rule behavior is documented in `docs/heuristic-analysis.md`, while model configuration, RAG synchronization, benchmarks, privacy boundaries, and cost estimates are documented in `docs/llm-rag-analysis.md`.
+
+Production defaults to `gemini-3.5-flash-lite` with RAG enabled. These non-secret Terraform variables can be overridden through `TF_VAR_*` in the deployment workflow: `llm_provider`, `llm_model_id`, `llm_timeout_ms`, `vertex_ai_location`, `rag_enabled`, `rag_collection`, `rag_corpus_version`, `rag_top_k`, `rag_embedding_model_id`, and `rag_embedding_dimension`.
+
+Run the manual `Sync RAG corpus` workflow before deploying a production configuration that enables RAG. The manual `Benchmark LLM pipeline` workflow prepares the same public evaluation data and compares every configured no-RAG/RAG model variant on a bounded online sample.
 
 Clients cannot override the token issuer, audience, or add arbitrary claims. These values are controlled by backend configuration.
 

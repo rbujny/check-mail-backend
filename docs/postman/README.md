@@ -31,11 +31,11 @@ Prefix it with `https://` when setting `baseUrl`.
 Use Collection Runner and execute folders in numeric order:
 
 1. `00 Authentication` obtains and stores a JWT.
-2. `01 Heuristic classifications` verifies representative `OK`, `WARNING`, and `PHISHING` decisions.
+2. `01 Heuristic classifications` verifies representative hybrid-pipeline responses and decisive heuristic phishing bypasses.
 3. `02 Contract validation` verifies malformed and out-of-contract requests.
 4. `03 Gateway security and routing` verifies JWT, API-key, method, and route enforcement.
 
-The classification tests intentionally assert selected full comments in addition to result enums. A changed rule weight, ordering, or explanation can therefore surface as a regression.
+Decisive heuristic `PHISHING` cases still assert exact results and selected comments. Requests eligible for LLM review assert the stable response schema and result enum instead of a fixed model decision. Model quality regressions belong in the labeled benchmark report rather than deterministic Postman assertions.
 
 ## Newman
 
@@ -81,7 +81,7 @@ The suite covers:
 
 - JWT acquisition and token contract
 - API-key and JWT enforcement
-- representative authentication-verdict combinations
+- representative authentication-verdict combinations through the hybrid pipeline
 - sender, Reply-To, and link-domain mismatches
 - IP, HTTP, userinfo, punycode, and non-standard-port link signals
 - Polish urgency and credential language

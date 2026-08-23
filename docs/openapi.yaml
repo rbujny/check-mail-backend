@@ -1,11 +1,11 @@
 openapi: 3.0.4
 info:
   title: CheckMail Backend API
-  version: 1.2.0
+  version: 1.3.0
   description: >
     Canonical API contract for the backend that processes optimized email payloads
-    sent by the browser plugin. This spec is intended to be the basis for a future
-    GCP API Gateway configuration.
+    sent by the browser plugin. This is the canonical public contract mirrored by
+    the Terraform-managed GCP API Gateway configuration.
 servers:
   - url: http://localhost:8080
     description: Local development gateway
@@ -39,8 +39,9 @@ paths:
       summary: Process an email for phishing analysis
       description: >
         Accepts a normalized email payload from the plugin and returns a phishing
-        verdict produced by deterministic authentication, identity, link, and
-        content heuristics for use by the extension UI.
+        verdict produced by a cost-aware heuristic, RAG, and LLM pipeline for
+        use by the extension UI. Decisive heuristic phishing results bypass the
+        model; clean and warning results are reviewed by the configured model.
       operationId: processEmail
       security:
         - ApiKey: []
@@ -67,6 +68,8 @@ paths:
           description: Processing request rate limit exceeded.
         "405":
           description: Method not allowed. Only POST is supported.
+        "503":
+          description: The LLM or RAG dependency is temporarily unavailable.
 components:
   securitySchemes:
     ApiKey:

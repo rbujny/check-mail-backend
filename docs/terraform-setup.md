@@ -49,6 +49,10 @@ The public JWKS is versioned in `infra/jwks.json` and published by Terraform fro
 
 The `/process` backend URL is derived directly from the Terraform-managed `process` Cloud Function and does not require a repository secret.
 
+Terraform enables Vertex AI, creates the Firestore vector index, and assigns a dedicated runtime service account to the process function. The production model and RAG settings have checked-in non-secret defaults, so no additional GitHub secret is required. Override them only when needed by adding the corresponding `TF_VAR_*` value to the deployment workflow; the available variables are documented in `docs/llm-rag-analysis.md` and `infra/variables.tf`.
+
+The Workload Identity deployment service account must be able to enable APIs, manage Firestore indexes, create service accounts and IAM bindings, and deploy functions. The manual RAG and benchmark workflows also use this identity and require Vertex AI user and Firestore data access in the target project.
+
 API Gateway uses OpenAPI 3.0.4. Quota identifiers use hyphens as required by Service Management, and Cloud Run Functions backends use HTTP/1.1. The latter avoids selecting the RPC security-policy path used by H2 backends while preserving authenticated invocation through the gateway service account.
 
 ## Terraform flow

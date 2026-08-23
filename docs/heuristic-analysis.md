@@ -1,6 +1,6 @@
 # Heuristic Email Analysis
 
-The `process` Cloud Function performs deterministic, local heuristic analysis of the normalized email payload accepted by `POST /process`. It does not call external reputation services, machine-learning models, Cloud SQL, or Firestore.
+The `process` Cloud Function first performs deterministic, local heuristic analysis of the normalized email payload accepted by `POST /process`. A heuristic `PHISHING` result is final and bypasses all paid model and RAG calls. Heuristic `OK` and `WARNING` results continue through Firestore vector retrieval and the configured LLM, as documented in `docs/llm-rag-analysis.md`.
 
 ## Result model
 
@@ -76,12 +76,14 @@ An empty `receivedChain` adds `+5`. The `truncated` field does not change the sc
 
 ## Logging and privacy
 
-Successful analyses emit one structured log containing:
+Successful analyses emit structured logs containing:
 
 - classification result
 - numeric score
 - finding codes
 - processing duration
+- whether the heuristic bypassed the LLM
+- model/provider, confidence, token usage, RAG corpus version, and hit count when applicable
 
 The function does not log email bodies, headers, sender or recipient addresses, or link values.
 
@@ -89,7 +91,7 @@ The function does not log email bodies, headers, sender or recipient addresses, 
 
 - domain comparison is not yet based on the Public Suffix List
 - `receivedChain` contents are not parsed beyond detecting an empty chain
-- no domain age, reputation, malware, or threat-intelligence data is used
+- no live domain age, reputation, malware, or threat-intelligence feed is used
 - heuristics have not yet been calibrated against a labeled production dataset
 - no scan results are persisted
 
