@@ -41,8 +41,24 @@ const variants = (): Variant[] => {
   return definitions;
 };
 
-const loadDataset = async (path: string, limit: number): Promise<DatasetRecord[]> => {
-  const lines = (await readFile(path, "utf8")).split(/\r?\n/u).filter(Boolean).slice(0, limit);
+const selectedVariants = (): Variant[] => {
+  const available = variants();
+  const selectedId = process.env.BENCHMARK_VARIANT;
+  if (!selectedId) {
+    return available;
+  }
+
+  const selected = available.filter((variant) => variant.id === selectedId);
+  if (selected.length === 0) {
+    throw new Error(
+      `Unknown or unavailable BENCHMARK_VARIANT '${selectedId}'. Available variants: ${available.map((variant) => variant.id).join(", ")}.`
+    );
+  }
+  return selected;
+};
+
+const loadDataset = async (path: string): Promise<DatasetRecord[]> => {
+  const lines = (await readFile(path, "utf8")).split(/\r?\n/u).filter(Boolean);
   return lines.map((line, index) => {
     const value = JSON.parse(line) as Partial<DatasetRecord>;
     if (
@@ -101,9 +117,24 @@ const main = async (): Promise<void> => {
   if (!datasetPath) {
     throw new Error("Usage: npm run benchmark -- <evaluation.jsonl> [report.json]");
   }
-  const records = await loadDataset(datasetPath, limit);
+  if (!Number.isInteger(limit) || limit <= 0) {
+    throw new Error("BENCHMARK_MAX_RECORDS must be a positive integer.");
+  }
+  const benchmarkVariants = selectedVariants();
+  const modelEligibleOnly = (process.env.BENCHMARK_MODEL_ELIGIBLE_ONLY ?? "false").toLowerCase() === "true";
+  const dataset = await loadDataset(datasetPath);
+  const records = (modelEligibleOnly
+    ? dataset.filter((record) => analyzeEmail(record.request).result !== "PHISHING")
+    : dataset
+  ).slice(0, limit);
+  if (records.length === 0) {
+    throw new Error("No evaluation records matched the benchmark selection.");
+  }
   const baseConfig = getProcessConfig();
-  const ragRetriever = createRagRetriever({ ...baseConfig, ragEnabled: true });
+  const needsRag = benchmarkVariants.some((variant) => variant.rag);
+  const ragRetriever = needsRag
+    ? createRagRetriever({ ...baseConfig, ragEnabled: true })
+    : undefined;
   const evaluationCache = new Map<string, EvaluationCache>();
 
   for (const record of records) {
@@ -116,12 +147,16 @@ const main = async (): Promise<void> => {
 
   const report: Record<string, unknown> = {
     generatedAt: new Date().toISOString(),
+    modelEligibleOnly,
     records: records.length,
-    note: "Heuristic PHISHING decisions bypass every model. RAG retrieval is computed once per eligible message and reused across RAG variants.",
+    selectedVariants: benchmarkVariants.map((variant) => variant.id),
+    note: needsRag
+      ? "Heuristic PHISHING decisions bypass every model. RAG retrieval is computed once per eligible message and reused across selected RAG variants."
+      : "Heuristic PHISHING decisions bypass every model. No embeddings or Firestore retrievals were performed for this no-RAG benchmark.",
     variants: {},
   };
 
-  for (const variant of variants()) {
+  for (const variant of benchmarkVariants) {
     const config: ProcessConfig = {
       ...baseConfig,
       llmProvider: variant.provider,

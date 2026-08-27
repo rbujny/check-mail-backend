@@ -3,10 +3,31 @@ name: Benchmark LLM pipeline
 on:
   workflow_dispatch:
     inputs:
-      max_records:
-        description: Maximum online records per model variant
+      variant:
+        description: Single model and RAG mode to test
         required: true
-        default: "500"
+        type: choice
+        default: gemini-3.5-flash-lite
+        options:
+          - gemini-3.5-flash-lite
+          - gemini-3.5-flash-lite-rag
+          - gemini-3.7-flash
+          - gemini-3.7-flash-rag
+          - claude-sonnet-5
+          - claude-sonnet-5-rag
+          - gemma-4-e4b
+          - gemma-4-e4b-rag
+      max_records:
+        description: Maximum evaluation records for the selected variant
+        required: true
+        type: choice
+        default: "5"
+        options:
+          - "1"
+          - "5"
+          - "10"
+          - "50"
+          - "100"
       corpus_version:
         description: RAG corpus version already imported into Firestore
         required: true
@@ -49,7 +70,9 @@ jobs:
       - name: Run online benchmark
         working-directory: functions/process
         env:
+          BENCHMARK_VARIANT: ${{ inputs.variant }}
           BENCHMARK_MAX_RECORDS: ${{ inputs.max_records }}
+          BENCHMARK_MODEL_ELIGIBLE_ONLY: "true"
           GOOGLE_CLOUD_PROJECT: ${{ secrets.CHECKMAIL_PROJECT_ID }}
           RAG_CORPUS_VERSION: ${{ inputs.corpus_version }}
           GEMMA_ENDPOINT: ${{ vars.GEMMA_ENDPOINT }}
@@ -59,5 +82,5 @@ jobs:
       - name: Upload benchmark report
         uses: actions/upload-artifact@v4
         with:
-          name: checkmail-benchmark-${{ inputs.corpus_version }}
+          name: checkmail-benchmark-${{ inputs.variant }}-${{ inputs.corpus_version }}
           path: functions/process/benchmark-report.json

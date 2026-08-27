@@ -92,7 +92,7 @@ The processing function validates the documented request contract and performs d
 
 Production defaults to `gemini-3.5-flash-lite` with RAG enabled. These non-secret Terraform variables can be overridden through `TF_VAR_*` in the deployment workflow: `llm_provider`, `llm_model_id`, `llm_timeout_ms`, `vertex_ai_location`, `rag_enabled`, `rag_collection`, `rag_corpus_version`, `rag_top_k`, `rag_embedding_model_id`, and `rag_embedding_dimension`.
 
-Run the manual `Sync RAG corpus` workflow before deploying a production configuration that enables RAG. The manual `Benchmark LLM pipeline` workflow prepares the same public evaluation data and compares every configured no-RAG/RAG model variant on a bounded online sample.
+Run the manual `Sync RAG corpus` workflow before deploying a production configuration that enables RAG. The manual `Benchmark LLM pipeline` workflow prepares the same public evaluation data and tests one explicitly selected model with or without RAG on a bounded online sample.
 
 Clients cannot override the token issuer, audience, or add arbitrary claims. These values are controlled by backend configuration.
 

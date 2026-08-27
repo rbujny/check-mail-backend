@@ -45,17 +45,21 @@ This is retrieval corpus construction, not model training or fine-tuning.
 
 ## Benchmarking
 
-The `Benchmark LLM pipeline` workflow is manual. It prepares public data and runs up to 500 online records per variant by default. Heuristic results and RAG retrievals are computed once per message and reused so model comparisons receive equivalent context. The report includes confusion matrices, accuracy, decisive accuracy, precision, recall, F1, warning rate, decisive coverage, false negatives, token usage, model-call count, heuristic bypass count, and p50/p95 model latency.
+The `Benchmark LLM pipeline` workflow is manual. Each run selects exactly one model variant, explicitly with or without RAG, and defaults to five evaluation records. The workflow limits the selectable sample sizes to 1, 5, 10, 50, or 100 to prevent an accidental high-cost online run. It selects only records eligible for model review, so a one-record workflow run performs one model call instead of potentially stopping at a heuristic `PHISHING` bypass. A no-RAG run does not create embeddings or query Firestore. The report includes confusion matrices, accuracy, decisive accuracy, precision, recall, F1, warning rate, decisive coverage, false negatives, token usage, model-call count, heuristic bypass count, and p50/p95 model latency.
 
 For a local authenticated run:
 
 ```sh
 cd functions/process
-BENCHMARK_MAX_RECORDS=500 \
+BENCHMARK_VARIANT=gemini-3.5-flash-lite-rag \
+BENCHMARK_MAX_RECORDS=5 \
+BENCHMARK_MODEL_ELIGIBLE_ONLY=true \
 GOOGLE_CLOUD_PROJECT=project-id \
 RAG_CORPUS_VERSION=v1 \
 npm run benchmark -- ../../datasets/generated/evaluation.jsonl benchmark-report.json
 ```
+
+Supported `BENCHMARK_VARIANT` values are `gemini-3.5-flash-lite`, `gemini-3.5-flash-lite-rag`, `gemini-3.7-flash`, `gemini-3.7-flash-rag`, `claude-sonnet-5`, `claude-sonnet-5-rag`, `gemma-4-e4b`, and `gemma-4-e4b-rag`. Gemma requires both `GEMMA_ENDPOINT` and, optionally, `GEMMA_MODEL_ID`.
 
 The online runner is intentionally bounded. A full 10,000-message experiment should use provider batch APIs after the online sample confirms model IDs, permissions, output compatibility, and prompt quality.
 
