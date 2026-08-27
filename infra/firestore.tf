@@ -27,11 +27,6 @@ resource "google_firestore_index" "rag_vector" {
   query_scope = "COLLECTION"
 
   fields {
-    field_path = "__name__"
-    order      = "ASCENDING"
-  }
-
-  fields {
     field_path = "corpusVersion"
     order      = "ASCENDING"
   }
