@@ -45,7 +45,7 @@ This is retrieval corpus construction, not model training or fine-tuning.
 
 ## Benchmarking
 
-The `Benchmark LLM pipeline` workflow is manual. Each run selects exactly one model variant, explicitly with or without RAG, and defaults to five evaluation records. The workflow limits the selectable sample sizes to 1, 5, 10, 50, or 100 to prevent an accidental high-cost online run. It selects only records eligible for model review, so a one-record workflow run performs one model call instead of potentially stopping at a heuristic `PHISHING` bypass. A no-RAG run does not create embeddings or query Firestore. The report includes confusion matrices, accuracy, decisive accuracy, precision, recall, F1, warning rate, decisive coverage, false negatives, token usage, model-call count, heuristic bypass count, and p50/p95 model latency.
+The `Benchmark LLM pipeline` workflow is manual. Each run selects exactly one model variant, explicitly with or without RAG, and defaults to five evaluation records. The workflow limits the selectable sample sizes to 1, 5, 10, 50, or 100 to prevent an accidental high-cost online run. It selects only records eligible for model review, so a one-record workflow run performs one model call instead of potentially stopping at a heuristic `PHISHING` bypass. A no-RAG run does not create embeddings or query Firestore. Benchmark requests use a 60-second per-operation timeout to tolerate Vertex AI cold starts, but are not retried automatically. Progress logs identify whether a failure happened during RAG retrieval or model inference without logging message content. The report includes confusion matrices, accuracy, decisive accuracy, precision, recall, F1, warning rate, decisive coverage, false negatives, token usage, model-call count, heuristic bypass count, and p50/p95 model latency.
 
 For a local authenticated run:
 
@@ -54,6 +54,7 @@ cd functions/process
 BENCHMARK_VARIANT=gemini-3.5-flash-lite-rag \
 BENCHMARK_MAX_RECORDS=5 \
 BENCHMARK_MODEL_ELIGIBLE_ONLY=true \
+LLM_TIMEOUT_MS=60000 \
 GOOGLE_CLOUD_PROJECT=project-id \
 RAG_CORPUS_VERSION=v1 \
 npm run benchmark -- ../../datasets/generated/evaluation.jsonl benchmark-report.json

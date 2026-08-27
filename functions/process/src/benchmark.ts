@@ -94,6 +94,9 @@ type ConfusionMatrix = {
 const ratio = (numerator: number, denominator: number): number =>
   denominator === 0 ? 0 : numerator / denominator;
 
+const errorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
 const metricsFor = (matrix: ConfusionMatrix, total: number) => {
   const decisive = matrix.truePositive + matrix.trueNegative + matrix.falsePositive + matrix.falseNegative;
   const precision = ratio(matrix.truePositive, matrix.truePositive + matrix.falsePositive);
@@ -137,11 +140,23 @@ const main = async (): Promise<void> => {
     : undefined;
   const evaluationCache = new Map<string, EvaluationCache>();
 
-  for (const record of records) {
+  for (const [index, record] of records.entries()) {
     const heuristic = analyzeEmail(record.request);
-    const rag = heuristic.result === "PHISHING" || !ragRetriever
-      ? undefined
-      : await ragRetriever.retrieve(record.request);
+    let rag: RagRetrievalResult | undefined;
+    if (heuristic.result !== "PHISHING" && ragRetriever) {
+      console.info(JSON.stringify({
+        event: "benchmark_rag_retrieval_started",
+        record: index + 1,
+        total: records.length,
+      }));
+      try {
+        rag = await ragRetriever.retrieve(record.request);
+      } catch (error) {
+        throw new Error(
+          `RAG retrieval failed for evaluation record ${index + 1}: ${errorMessage(error)}`
+        );
+      }
+    }
     evaluationCache.set(record.id, { heuristic, rag });
   }
 
@@ -180,7 +195,7 @@ const main = async (): Promise<void> => {
     let heuristicBypasses = 0;
     const latencies: number[] = [];
 
-    for (const record of records) {
+    for (const [index, record] of records.entries()) {
       const cached = evaluationCache.get(record.id);
       if (!cached) {
         throw new Error(`Missing evaluation cache entry for ${record.id}.`);
@@ -196,11 +211,24 @@ const main = async (): Promise<void> => {
         continue;
       }
       const startedAt = Date.now();
-      const response = await provider.assess({
-        request: record.request,
-        heuristic,
-        ragDocuments: variant.rag ? cached.rag?.documents ?? [] : [],
-      });
+      console.info(JSON.stringify({
+        event: "benchmark_model_request_started",
+        record: index + 1,
+        total: records.length,
+        variant: variant.id,
+      }));
+      let response;
+      try {
+        response = await provider.assess({
+          request: record.request,
+          heuristic,
+          ragDocuments: variant.rag ? cached.rag?.documents ?? [] : [],
+        });
+      } catch (error) {
+        throw new Error(
+          `Model request failed for ${variant.id}, evaluation record ${index + 1}: ${errorMessage(error)}`
+        );
+      }
       modelCalls += 1;
       latencies.push(Date.now() - startedAt);
       inputTokens += response.usage.inputTokens ?? 0;
