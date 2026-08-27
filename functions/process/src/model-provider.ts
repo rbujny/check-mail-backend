@@ -20,6 +20,25 @@ export interface ModelProvider {
 }
 
 type JsonRecord = Record<string, unknown>;
+type InvalidModelResponseDiagnostics = {
+  finishReason?: string;
+  model: string;
+  outputCharacters: number;
+  outputTruncated: boolean;
+  provider: string;
+};
+
+export class InvalidModelResponseError extends Error {
+  readonly name = "InvalidModelResponseError";
+
+  constructor(
+    message: string,
+    readonly debugOutput: string,
+    readonly diagnostics: InvalidModelResponseDiagnostics
+  ) {
+    super(message);
+  }
+}
 
 const resultValues = new Set(["OK", "WARNING", "PHISHING"]);
 const emailPattern = /[A-Z0-9._%+-]+@([A-Z0-9.-]+\.[A-Z]{2,})/giu;
@@ -34,10 +53,12 @@ const sanitizePromptText = (value: string): string =>
     .replace(urlPattern, (url) => linkDescriptors([url])[0] ?? "invalid-url")
     .replace(longNumberPattern, "<NUMBER>");
 
-const parseAssessment = (text: string): LlmAssessment => {
+export const parseAssessment = (text: string): LlmAssessment => {
+  const trimmed = text.trim();
+  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/iu);
   let value: unknown;
   try {
-    value = JSON.parse(text);
+    value = JSON.parse(fenced?.[1] ?? trimmed);
   } catch {
     throw new Error("Model response is not valid JSON.");
   }
@@ -70,6 +91,23 @@ const parseAssessment = (text: string): LlmAssessment => {
     comment: record.comment,
     signals: record.signals.slice(0, 8),
   };
+};
+
+const parseAssessmentWithDiagnostics = (
+  text: string,
+  diagnostics: Omit<InvalidModelResponseDiagnostics, "outputCharacters" | "outputTruncated">
+): LlmAssessment => {
+  try {
+    return parseAssessment(text);
+  } catch (error) {
+    const debugOutputLimit = 4096;
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new InvalidModelResponseError(reason, text.slice(0, debugOutputLimit), {
+      ...diagnostics,
+      outputCharacters: text.length,
+      outputTruncated: text.length > debugOutputLimit,
+    });
+  }
 };
 
 const domainFromHeader = (value: string | undefined): string | undefined =>
@@ -156,23 +194,34 @@ export class GeminiProvider extends AuthenticatedProvider implements ModelProvid
       contents: [{ role: "user", parts: [{ text: buildPrompt(input) }] }],
       generationConfig: {
         temperature: 0,
-        maxOutputTokens: 120,
+        maxOutputTokens: 256,
         responseMimeType: "application/json",
         responseSchema: assessmentSchema,
         thinkingConfig: { thinkingLevel: "MINIMAL" },
       },
     }, this.config.llmTimeoutMs);
     const candidates = response.candidates as Array<JsonRecord> | undefined;
-    const content = candidates?.[0]?.content as JsonRecord | undefined;
+    const candidate = candidates?.[0];
+    const content = candidate?.content as JsonRecord | undefined;
     const parts = content?.parts as Array<JsonRecord> | undefined;
-    const text = parts?.map((part) => part.text).find((value) => typeof value === "string");
-    if (typeof text !== "string") {
+    const text = parts
+      ?.filter((part) => part.thought !== true && typeof part.text === "string")
+      .map((part) => part.text as string)
+      .join("");
+    if (!text) {
       throw new Error("Gemini returned no text assessment.");
     }
     const usage = (response.usageMetadata ?? {}) as JsonRecord;
+    const assessment = parseAssessmentWithDiagnostics(text, {
+      finishReason: typeof candidate?.finishReason === "string"
+        ? candidate.finishReason
+        : "unknown",
+      model: this.config.llmModelId,
+      provider: "gemini",
+    });
 
     return {
-      assessment: parseAssessment(text),
+      assessment,
       model: this.config.llmModelId,
       provider: "gemini",
       usage: {
@@ -192,7 +241,7 @@ export class ClaudeProvider extends AuthenticatedProvider implements ModelProvid
     const url = `${endpointForLocation(this.config.vertexLocation)}/v1/projects/${this.config.projectId}/locations/${this.config.vertexLocation}/publishers/anthropic/models/${this.config.llmModelId}:rawPredict`;
     const response = await this.request<JsonRecord>(url, {
       anthropic_version: "vertex-2023-10-16",
-      max_tokens: 120,
+      max_tokens: 256,
       temperature: 0,
       system: "You are a defensive email security classifier. Return only the requested JSON object.",
       messages: [{ role: "user", content: buildPrompt(input) }],
@@ -205,7 +254,11 @@ export class ClaudeProvider extends AuthenticatedProvider implements ModelProvid
     const usage = (response.usage ?? {}) as JsonRecord;
 
     return {
-      assessment: parseAssessment(text),
+      assessment: parseAssessmentWithDiagnostics(text, {
+        finishReason: typeof response.stop_reason === "string" ? response.stop_reason : undefined,
+        model: this.config.llmModelId,
+        provider: "claude",
+      }),
       model: this.config.llmModelId,
       provider: "claude",
       usage: {
@@ -232,7 +285,7 @@ export class OpenAiCompatibleProvider implements ModelProvider {
         body: JSON.stringify({
           model: this.config.llmModelId,
           temperature: 0,
-          max_tokens: 120,
+          max_tokens: 256,
           response_format: { type: "json_object" },
           messages: [
             { role: "system", content: "You are a defensive email security classifier. Return only JSON." },
@@ -252,7 +305,13 @@ export class OpenAiCompatibleProvider implements ModelProvider {
       }
       const usage = (body.usage ?? {}) as JsonRecord;
       return {
-        assessment: parseAssessment(message.content),
+        assessment: parseAssessmentWithDiagnostics(message.content, {
+          finishReason: typeof choices?.[0]?.finish_reason === "string"
+            ? choices[0].finish_reason
+            : undefined,
+          model: this.config.llmModelId,
+          provider: "openai-compatible",
+        }),
         model: this.config.llmModelId,
         provider: "openai-compatible",
         usage: {

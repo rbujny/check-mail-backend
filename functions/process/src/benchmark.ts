@@ -2,7 +2,7 @@ import { readFile, writeFile } from "node:fs/promises";
 
 import { analyzeEmail } from "./analyzer";
 import { getProcessConfig, type ProcessConfig } from "./config";
-import { createModelProvider } from "./model-provider";
+import { createModelProvider, InvalidModelResponseError } from "./model-provider";
 import { createRagRetriever } from "./rag";
 import type { AnalysisResult, ProcessEmailRequest, RagRetrievalResult } from "./types";
 import { isProcessedEmailRequest } from "./validation";
@@ -89,6 +89,13 @@ type ConfusionMatrix = {
   falseNegative: number;
   warningOnPhishing: number;
   warningOnSafe: number;
+};
+
+type BenchmarkModelError = {
+  diagnostics?: InvalidModelResponseError["diagnostics"];
+  error: string;
+  invalidOutput?: string;
+  record: number;
 };
 
 const ratio = (numerator: number, denominator: number): number =>
@@ -192,6 +199,9 @@ const main = async (): Promise<void> => {
     let inputTokens = 0;
     let outputTokens = 0;
     let modelCalls = 0;
+    let modelAttempts = 0;
+    let modelFailures = 0;
+    const modelErrors: BenchmarkModelError[] = [];
     let heuristicBypasses = 0;
     const latencies: number[] = [];
 
@@ -217,6 +227,7 @@ const main = async (): Promise<void> => {
         total: records.length,
         variant: variant.id,
       }));
+      modelAttempts += 1;
       let response;
       try {
         response = await provider.assess({
@@ -225,9 +236,28 @@ const main = async (): Promise<void> => {
           ragDocuments: variant.rag ? cached.rag?.documents ?? [] : [],
         });
       } catch (error) {
-        throw new Error(
-          `Model request failed for ${variant.id}, evaluation record ${index + 1}: ${errorMessage(error)}`
-        );
+        const message = errorMessage(error);
+        const modelError: BenchmarkModelError = {
+          error: message,
+          record: index + 1,
+          ...(error instanceof InvalidModelResponseError ? {
+            diagnostics: error.diagnostics,
+            invalidOutput: error.debugOutput,
+          } : {}),
+        };
+        modelFailures += 1;
+        modelErrors.push(modelError);
+        console.error(JSON.stringify({
+          event: "benchmark_model_request_failed",
+          error: message,
+          ...(error instanceof InvalidModelResponseError ? {
+            diagnostics: error.diagnostics,
+            invalidOutput: error.debugOutput,
+          } : {}),
+          record: index + 1,
+          variant: variant.id,
+        }));
+        continue;
       }
       modelCalls += 1;
       latencies.push(Date.now() - startedAt);
@@ -254,6 +284,10 @@ const main = async (): Promise<void> => {
     (report.variants as Record<string, unknown>)[variant.id] = {
       ...metricsFor(matrix, records.length),
       modelCalls,
+      modelAttempts,
+      modelFailures,
+      modelFailureRate: ratio(modelFailures, modelAttempts),
+      modelErrors,
       heuristicBypasses,
       inputTokens,
       outputTokens,
@@ -263,6 +297,12 @@ const main = async (): Promise<void> => {
 
   await writeFile(outputPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
   console.info(`Benchmark report written to ${outputPath}`);
+
+  const failures = Object.values(report.variants as Record<string, { modelFailures: number }>)
+    .reduce((total, variant) => total + variant.modelFailures, 0);
+  if (failures > 0) {
+    throw new Error(`Benchmark completed with ${failures} model response failure(s). See ${outputPath}.`);
+  }
 };
 
 main().catch((error: unknown) => {

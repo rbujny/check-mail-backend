@@ -81,7 +81,9 @@ jobs:
         run: npm run benchmark -- ../../datasets/generated/evaluation.jsonl benchmark-report.json
 
       - name: Upload benchmark report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: checkmail-benchmark-${{ inputs.variant }}-${{ inputs.corpus_version }}
+          if-no-files-found: warn
           path: functions/process/benchmark-report.json

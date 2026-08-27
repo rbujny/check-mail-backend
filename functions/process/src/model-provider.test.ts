@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildPrompt } from "./model-provider";
+import { buildPrompt, parseAssessment } from "./model-provider";
 import type { ModelInput } from "./model-provider";
 
 const input: ModelInput = {
@@ -36,4 +36,18 @@ test("buildPrompt minimizes addresses, URL paths, long identifiers, and received
   assert.match(prompt, /<EMAIL@example\.net>/u);
   assert.match(prompt, /https:\/\/example\.org/u);
   assert.match(prompt, /"receivedHopCount":1/u);
+});
+
+test("parseAssessment accepts a complete JSON object wrapped in a markdown fence", () => {
+  assert.deepEqual(
+    parseAssessment(`\`\`\`json
+{"result":"WARNING","confidence":0.75,"comment":"Suspicious authentication signals.","signals":["AUTH_FAILURE"]}
+\`\`\``),
+    {
+      result: "WARNING",
+      confidence: 0.75,
+      comment: "Suspicious authentication signals.",
+      signals: ["AUTH_FAILURE"],
+    }
+  );
 });
