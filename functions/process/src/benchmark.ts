@@ -2,7 +2,11 @@ import { readFile, writeFile } from "node:fs/promises";
 
 import { analyzeEmail } from "./analyzer";
 import { getProcessConfig, type ProcessConfig } from "./config";
-import { createModelProvider, InvalidModelResponseError } from "./model-provider";
+import {
+  createModelProvider,
+  InvalidModelResponseError,
+  type ModelRequestOptions,
+} from "./model-provider";
 import { createRagRetriever } from "./rag";
 import type { AnalysisResult, ProcessEmailRequest, RagRetrievalResult } from "./types";
 import { isProcessedEmailRequest } from "./validation";
@@ -20,6 +24,7 @@ type Variant = {
   rag: boolean;
   location: string;
   endpoint?: string;
+  requestOptions?: ModelRequestOptions;
 };
 
 const variants = (): Variant[] => {
@@ -34,8 +39,10 @@ const variants = (): Variant[] => {
   ];
   if (gemmaEndpoint) {
     definitions.push(
-      { id: "gemma-4-e4b", provider: "openai-compatible", model: process.env.GEMMA_MODEL_ID ?? "gemma-4-e4b-it", rag: false, location: "local", endpoint: gemmaEndpoint },
-      { id: "gemma-4-e4b-rag", provider: "openai-compatible", model: process.env.GEMMA_MODEL_ID ?? "gemma-4-e4b-it", rag: true, location: "local", endpoint: gemmaEndpoint }
+      { id: "gemma-4-e4b", provider: "openai-compatible", model: process.env.GEMMA_MODEL_ID ?? "gemma-4-e4b-it", rag: false, location: "local", endpoint: gemmaEndpoint, requestOptions: { maxOutputTokens: 256, reasoningMode: "disabled" } },
+      { id: "gemma-4-e4b-rag", provider: "openai-compatible", model: process.env.GEMMA_MODEL_ID ?? "gemma-4-e4b-it", rag: true, location: "local", endpoint: gemmaEndpoint, requestOptions: { maxOutputTokens: 256, reasoningMode: "disabled" } },
+      { id: "gemma-4-e4b-thinking", provider: "openai-compatible", model: process.env.GEMMA_MODEL_ID ?? "gemma-4-e4b-it", rag: false, location: "local", endpoint: gemmaEndpoint, requestOptions: { maxOutputTokens: 2048, reasoningBudget: 1536, reasoningMode: "enabled" } },
+      { id: "gemma-4-e4b-thinking-rag", provider: "openai-compatible", model: process.env.GEMMA_MODEL_ID ?? "gemma-4-e4b-it", rag: true, location: "local", endpoint: gemmaEndpoint, requestOptions: { maxOutputTokens: 2048, reasoningBudget: 1536, reasoningMode: "enabled" } }
     );
   }
   return definitions;
@@ -124,11 +131,18 @@ const main = async (): Promise<void> => {
   const datasetPath = process.argv[2];
   const outputPath = process.argv[3] ?? "benchmark-report.json";
   const limit = Number.parseInt(process.env.BENCHMARK_MAX_RECORDS ?? "500", 10);
+  const maxConsecutiveFailures = Number.parseInt(
+    process.env.BENCHMARK_MAX_CONSECUTIVE_FAILURES ?? "3",
+    10
+  );
   if (!datasetPath) {
     throw new Error("Usage: npm run benchmark -- <evaluation.jsonl> [report.json]");
   }
   if (!Number.isInteger(limit) || limit <= 0) {
     throw new Error("BENCHMARK_MAX_RECORDS must be a positive integer.");
+  }
+  if (!Number.isInteger(maxConsecutiveFailures) || maxConsecutiveFailures <= 0) {
+    throw new Error("BENCHMARK_MAX_CONSECUTIVE_FAILURES must be a positive integer.");
   }
   const benchmarkVariants = selectedVariants();
   const modelEligibleOnly = (process.env.BENCHMARK_MODEL_ELIGIBLE_ONLY ?? "false").toLowerCase() === "true";
@@ -198,11 +212,14 @@ const main = async (): Promise<void> => {
     };
     let inputTokens = 0;
     let outputTokens = 0;
+    let reasoningCharacters = 0;
     let modelCalls = 0;
     let modelAttempts = 0;
     let modelFailures = 0;
     const modelErrors: BenchmarkModelError[] = [];
     let heuristicBypasses = 0;
+    let consecutiveModelFailures = 0;
+    let abortedAfterConsecutiveFailures = false;
     const latencies: number[] = [];
 
     for (const [index, record] of records.entries()) {
@@ -230,11 +247,14 @@ const main = async (): Promise<void> => {
       modelAttempts += 1;
       let response;
       try {
-        response = await provider.assess({
-          request: record.request,
-          heuristic,
-          ragDocuments: variant.rag ? cached.rag?.documents ?? [] : [],
-        });
+        response = await provider.assess(
+          {
+            request: record.request,
+            heuristic,
+            ragDocuments: variant.rag ? cached.rag?.documents ?? [] : [],
+          },
+          variant.requestOptions
+        );
       } catch (error) {
         const message = errorMessage(error);
         const modelError: BenchmarkModelError = {
@@ -246,6 +266,7 @@ const main = async (): Promise<void> => {
           } : {}),
         };
         modelFailures += 1;
+        consecutiveModelFailures += 1;
         modelErrors.push(modelError);
         console.error(JSON.stringify({
           event: "benchmark_model_request_failed",
@@ -257,12 +278,23 @@ const main = async (): Promise<void> => {
           record: index + 1,
           variant: variant.id,
         }));
+        if (consecutiveModelFailures >= maxConsecutiveFailures) {
+          abortedAfterConsecutiveFailures = true;
+          console.error(JSON.stringify({
+            event: "benchmark_variant_aborted",
+            consecutiveFailures: consecutiveModelFailures,
+            variant: variant.id,
+          }));
+          break;
+        }
         continue;
       }
+      consecutiveModelFailures = 0;
       modelCalls += 1;
       latencies.push(Date.now() - startedAt);
       inputTokens += response.usage.inputTokens ?? 0;
       outputTokens += response.usage.outputTokens ?? 0;
+      reasoningCharacters += response.usage.reasoningCharacters ?? 0;
       const predicted = response.assessment.result;
       if (predicted === "WARNING") {
         if (record.label === "phishing") {
@@ -288,9 +320,11 @@ const main = async (): Promise<void> => {
       modelFailures,
       modelFailureRate: ratio(modelFailures, modelAttempts),
       modelErrors,
+      abortedAfterConsecutiveFailures,
       heuristicBypasses,
       inputTokens,
       outputTokens,
+      reasoningCharacters,
       latencyMs: { p50: percentile(latencies, 0.5), p95: percentile(latencies, 0.95) },
     };
   }

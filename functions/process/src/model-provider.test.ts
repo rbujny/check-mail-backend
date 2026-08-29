@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildPrompt, parseAssessment } from "./model-provider";
+import {
+  buildOpenAiCompatibleRequestBody,
+  buildPrompt,
+  parseAssessment,
+} from "./model-provider";
 import type { ModelInput } from "./model-provider";
 
 const input: ModelInput = {
@@ -50,4 +54,29 @@ test("parseAssessment accepts a complete JSON object wrapped in a markdown fence
       signals: ["AUTH_FAILURE"],
     }
   );
+});
+
+test("OpenAI-compatible request disables reasoning for the regular Gemma variant", () => {
+  const body = buildOpenAiCompatibleRequestBody("gemma-test", input, {
+    maxOutputTokens: 256,
+    reasoningMode: "disabled",
+  });
+
+  assert.equal(body.max_tokens, 256);
+  assert.equal(body.reasoning_effort, "none");
+  assert.equal(body.reasoning_budget, 0);
+  assert.deepEqual(body.chat_template_kwargs, { enable_thinking: false });
+});
+
+test("OpenAI-compatible request bounds reasoning for the thinking Gemma variant", () => {
+  const body = buildOpenAiCompatibleRequestBody("gemma-test", input, {
+    maxOutputTokens: 2048,
+    reasoningBudget: 1536,
+    reasoningMode: "enabled",
+  });
+
+  assert.equal(body.max_tokens, 2048);
+  assert.equal(body.reasoning_effort, undefined);
+  assert.equal(body.reasoning_budget, 1536);
+  assert.deepEqual(body.chat_template_kwargs, { enable_thinking: true });
 });

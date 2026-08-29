@@ -17,6 +17,8 @@ on:
           - claude-sonnet-5-rag
           - gemma-4-e4b
           - gemma-4-e4b-rag
+          - gemma-4-e4b-thinking
+          - gemma-4-e4b-thinking-rag
       max_records:
         description: Maximum evaluation records for the selected variant
         required: true
@@ -83,6 +85,7 @@ jobs:
           BENCHMARK_VARIANT: ${{ inputs.variant }}
           BENCHMARK_MAX_RECORDS: ${{ inputs.max_records }}
           BENCHMARK_MODEL_ELIGIBLE_ONLY: "true"
+          BENCHMARK_MAX_CONSECUTIVE_FAILURES: "3"
           GOOGLE_CLOUD_PROJECT: ${{ secrets.CHECKMAIL_PROJECT_ID }}
           RAG_CORPUS_VERSION: ${{ inputs.corpus_version }}
           GEMMA_ENDPOINT: ${{ vars.GEMMA_ENDPOINT }}

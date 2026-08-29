@@ -15,8 +15,14 @@ export type ModelInput = {
   ragDocuments: RagDocument[];
 };
 
+export type ModelRequestOptions = {
+  maxOutputTokens?: number;
+  reasoningBudget?: number;
+  reasoningMode?: "default" | "disabled" | "enabled";
+};
+
 export interface ModelProvider {
-  assess(input: ModelInput): Promise<ModelAssessment>;
+  assess(input: ModelInput, options?: ModelRequestOptions): Promise<ModelAssessment>;
 }
 
 type JsonRecord = Record<string, unknown>;
@@ -26,6 +32,7 @@ type InvalidModelResponseDiagnostics = {
   outputCharacters: number;
   outputTruncated: boolean;
   provider: string;
+  reasoningCharacters?: number;
 };
 
 export class InvalidModelResponseError extends Error {
@@ -185,7 +192,7 @@ export class GeminiProvider extends AuthenticatedProvider implements ModelProvid
     super();
   }
 
-  async assess(input: ModelInput): Promise<ModelAssessment> {
+  async assess(input: ModelInput, options: ModelRequestOptions = {}): Promise<ModelAssessment> {
     const url = `${endpointForLocation(this.config.vertexLocation)}/v1/projects/${this.config.projectId}/locations/${this.config.vertexLocation}/publishers/google/models/${this.config.llmModelId}:generateContent`;
     const response = await this.request<JsonRecord>(url, {
       systemInstruction: {
@@ -194,7 +201,7 @@ export class GeminiProvider extends AuthenticatedProvider implements ModelProvid
       contents: [{ role: "user", parts: [{ text: buildPrompt(input) }] }],
       generationConfig: {
         temperature: 0,
-        maxOutputTokens: 256,
+        maxOutputTokens: options.maxOutputTokens ?? 256,
         responseMimeType: "application/json",
         responseSchema: assessmentSchema,
         thinkingConfig: { thinkingLevel: "MINIMAL" },
@@ -237,11 +244,11 @@ export class ClaudeProvider extends AuthenticatedProvider implements ModelProvid
     super();
   }
 
-  async assess(input: ModelInput): Promise<ModelAssessment> {
+  async assess(input: ModelInput, options: ModelRequestOptions = {}): Promise<ModelAssessment> {
     const url = `${endpointForLocation(this.config.vertexLocation)}/v1/projects/${this.config.projectId}/locations/${this.config.vertexLocation}/publishers/anthropic/models/${this.config.llmModelId}:rawPredict`;
     const response = await this.request<JsonRecord>(url, {
       anthropic_version: "vertex-2023-10-16",
-      max_tokens: 256,
+      max_tokens: options.maxOutputTokens ?? 256,
       temperature: 0,
       system: "You are a defensive email security classifier. Return only the requested JSON object.",
       messages: [{ role: "user", content: buildPrompt(input) }],
@@ -272,7 +279,7 @@ export class ClaudeProvider extends AuthenticatedProvider implements ModelProvid
 export class OpenAiCompatibleProvider implements ModelProvider {
   constructor(private readonly config: ProcessConfig) {}
 
-  async assess(input: ModelInput): Promise<ModelAssessment> {
+  async assess(input: ModelInput, options: ModelRequestOptions = {}): Promise<ModelAssessment> {
     if (!this.config.llmEndpoint) {
       throw new Error("LLM_ENDPOINT is required for an OpenAI-compatible provider.");
     }
@@ -282,16 +289,7 @@ export class OpenAiCompatibleProvider implements ModelProvider {
       const response = await fetch(`${this.config.llmEndpoint.replace(/\/$/u, "")}/v1/chat/completions`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          model: this.config.llmModelId,
-          temperature: 0,
-          max_tokens: 256,
-          response_format: { type: "json_object" },
-          messages: [
-            { role: "system", content: "You are a defensive email security classifier. Return only JSON." },
-            { role: "user", content: buildPrompt(input) },
-          ],
-        }),
+        body: JSON.stringify(buildOpenAiCompatibleRequestBody(this.config.llmModelId, input, options)),
         signal: controller.signal,
       });
       if (!response.ok) {
@@ -311,12 +309,18 @@ export class OpenAiCompatibleProvider implements ModelProvider {
             : undefined,
           model: this.config.llmModelId,
           provider: "openai-compatible",
+          reasoningCharacters: typeof message.reasoning_content === "string"
+            ? message.reasoning_content.length
+            : 0,
         }),
         model: this.config.llmModelId,
         provider: "openai-compatible",
         usage: {
           inputTokens: typeof usage.prompt_tokens === "number" ? usage.prompt_tokens : undefined,
           outputTokens: typeof usage.completion_tokens === "number" ? usage.completion_tokens : undefined,
+          reasoningCharacters: typeof message.reasoning_content === "string"
+            ? message.reasoning_content.length
+            : undefined,
         },
       };
     } finally {
@@ -324,6 +328,34 @@ export class OpenAiCompatibleProvider implements ModelProvider {
     }
   }
 }
+
+export const buildOpenAiCompatibleRequestBody = (
+  model: string,
+  input: ModelInput,
+  options: ModelRequestOptions = {}
+): JsonRecord => {
+  const body: JsonRecord = {
+    model,
+    temperature: 0,
+    max_tokens: options.maxOutputTokens ?? 256,
+    response_format: { type: "json_object" },
+    messages: [
+      { role: "system", content: "You are a defensive email security classifier. Return only JSON." },
+      { role: "user", content: buildPrompt(input) },
+    ],
+  };
+
+  if (options.reasoningMode === "disabled") {
+    body.reasoning_effort = "none";
+    body.reasoning_budget = 0;
+    body.chat_template_kwargs = { enable_thinking: false };
+  } else if (options.reasoningMode === "enabled") {
+    body.reasoning_budget = options.reasoningBudget ?? 256;
+    body.chat_template_kwargs = { enable_thinking: true };
+  }
+
+  return body;
+};
 
 export const createModelProvider = (config: ProcessConfig): ModelProvider => {
   if (config.llmProvider === "claude") {

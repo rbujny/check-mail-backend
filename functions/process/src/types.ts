@@ -46,6 +46,7 @@ export type LlmAssessment = {
 export type ModelUsage = {
   inputTokens?: number;
   outputTokens?: number;
+  reasoningCharacters?: number;
 };
 
 export type ModelAssessment = {
