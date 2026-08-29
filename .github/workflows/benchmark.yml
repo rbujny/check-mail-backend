@@ -39,9 +39,19 @@ permissions:
 
 jobs:
   benchmark:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     steps:
       - uses: actions/checkout@v4
+      - name: Verify local Gemma endpoint
+        if: startsWith(inputs.variant, 'gemma-')
+        env:
+          GEMMA_ENDPOINT: ${{ vars.GEMMA_ENDPOINT }}
+        run: |
+          test -n "$GEMMA_ENDPOINT"
+          curl --fail --silent --show-error \
+            --retry 3 \
+            --retry-connrefused \
+            "${GEMMA_ENDPOINT%/}/v1/models"
 
       - uses: actions/setup-python@v5
         with:
