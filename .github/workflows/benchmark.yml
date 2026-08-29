@@ -99,4 +99,5 @@ jobs:
         with:
           name: checkmail-benchmark-${{ inputs.variant }}-${{ inputs.corpus_version }}
           if-no-files-found: warn
+          retention-days: 14
           path: functions/process/benchmark-report.json

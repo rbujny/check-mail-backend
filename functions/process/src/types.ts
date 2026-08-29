@@ -53,6 +53,7 @@ export type ModelAssessment = {
   assessment: LlmAssessment;
   model: string;
   provider: string;
+  rawOutput?: string;
   usage: ModelUsage;
 };
 

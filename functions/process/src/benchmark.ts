@@ -8,7 +8,12 @@ import {
   type ModelRequestOptions,
 } from "./model-provider";
 import { createRagRetriever } from "./rag";
-import type { AnalysisResult, ProcessEmailRequest, RagRetrievalResult } from "./types";
+import type {
+  AnalysisResult,
+  ModelAssessment,
+  ProcessEmailRequest,
+  RagRetrievalResult,
+} from "./types";
 import { isProcessedEmailRequest } from "./validation";
 
 type DatasetRecord = {
@@ -103,6 +108,18 @@ type BenchmarkModelError = {
   error: string;
   invalidOutput?: string;
   record: number;
+};
+
+type BenchmarkMisclassification = {
+  actualResult: "OK" | "PHISHING";
+  classification: "falseNegative" | "falsePositive";
+  decisionSource: "heuristic" | "model";
+  email: ProcessEmailRequest;
+  expectedLabel: DatasetRecord["label"];
+  heuristic: AnalysisResult;
+  modelOutput: ModelAssessment | null;
+  record: number;
+  recordId: string;
 };
 
 const ratio = (numerator: number, denominator: number): number =>
@@ -217,6 +234,7 @@ const main = async (): Promise<void> => {
     let modelAttempts = 0;
     let modelFailures = 0;
     const modelErrors: BenchmarkModelError[] = [];
+    const misclassifications: BenchmarkMisclassification[] = [];
     let heuristicBypasses = 0;
     let consecutiveModelFailures = 0;
     let abortedAfterConsecutiveFailures = false;
@@ -234,6 +252,17 @@ const main = async (): Promise<void> => {
           matrix.truePositive += 1;
         } else {
           matrix.falsePositive += 1;
+          misclassifications.push({
+            actualResult: "PHISHING",
+            classification: "falsePositive",
+            decisionSource: "heuristic",
+            email: record.request,
+            expectedLabel: record.label,
+            heuristic,
+            modelOutput: null,
+            record: index + 1,
+            recordId: record.id,
+          });
         }
         continue;
       }
@@ -306,10 +335,32 @@ const main = async (): Promise<void> => {
         matrix.truePositive += 1;
       } else if (predicted === "PHISHING") {
         matrix.falsePositive += 1;
+        misclassifications.push({
+          actualResult: predicted,
+          classification: "falsePositive",
+          decisionSource: "model",
+          email: record.request,
+          expectedLabel: record.label,
+          heuristic,
+          modelOutput: response,
+          record: index + 1,
+          recordId: record.id,
+        });
       } else if (record.label === "safe") {
         matrix.trueNegative += 1;
       } else {
         matrix.falseNegative += 1;
+        misclassifications.push({
+          actualResult: predicted,
+          classification: "falseNegative",
+          decisionSource: "model",
+          email: record.request,
+          expectedLabel: record.label,
+          heuristic,
+          modelOutput: response,
+          record: index + 1,
+          recordId: record.id,
+        });
       }
     }
 
@@ -320,6 +371,7 @@ const main = async (): Promise<void> => {
       modelFailures,
       modelFailureRate: ratio(modelFailures, modelAttempts),
       modelErrors,
+      misclassifications,
       abortedAfterConsecutiveFailures,
       heuristicBypasses,
       inputTokens,

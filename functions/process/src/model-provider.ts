@@ -231,6 +231,7 @@ export class GeminiProvider extends AuthenticatedProvider implements ModelProvid
       assessment,
       model: this.config.llmModelId,
       provider: "gemini",
+      rawOutput: text,
       usage: {
         inputTokens: typeof usage.promptTokenCount === "number" ? usage.promptTokenCount : undefined,
         outputTokens: typeof usage.candidatesTokenCount === "number" ? usage.candidatesTokenCount : undefined,
@@ -268,6 +269,7 @@ export class ClaudeProvider extends AuthenticatedProvider implements ModelProvid
       }),
       model: this.config.llmModelId,
       provider: "claude",
+      rawOutput: text,
       usage: {
         inputTokens: typeof usage.input_tokens === "number" ? usage.input_tokens : undefined,
         outputTokens: typeof usage.output_tokens === "number" ? usage.output_tokens : undefined,
@@ -315,6 +317,7 @@ export class OpenAiCompatibleProvider implements ModelProvider {
         }),
         model: this.config.llmModelId,
         provider: "openai-compatible",
+        rawOutput: message.content,
         usage: {
           inputTokens: typeof usage.prompt_tokens === "number" ? usage.prompt_tokens : undefined,
           outputTokens: typeof usage.completion_tokens === "number" ? usage.completion_tokens : undefined,
