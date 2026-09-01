@@ -14,6 +14,17 @@ variable "function_env_overrides" {
   default     = {}
 }
 
+variable "process_results_retention_days" {
+  description = "Number of days successful process result objects are retained in Cloud Storage."
+  type        = number
+  default     = 90
+
+  validation {
+    condition     = var.process_results_retention_days > 0 && floor(var.process_results_retention_days) == var.process_results_retention_days
+    error_message = "process_results_retention_days must be a positive whole number."
+  }
+}
+
 variable "llm_provider" {
   description = "Active production LLM provider for non-phishing heuristic results."
   type        = string

@@ -3,6 +3,7 @@ import test from "node:test";
 import type { NextFunction, Request, Response } from "express";
 
 import { createProcessPostHandler, errorHandler, methodNotAllowedHandler } from "./index";
+import type { ResultStore } from "./result-store";
 import { createValidRequest } from "./test-fixtures";
 import type { ProcessEmailErrorResponse, ProcessEmailResponse } from "./types";
 
@@ -80,6 +81,70 @@ test("POST handler returns 400 for an invalid payload", async () => {
   await processPostHandler(request, captured.response);
 
   assert.equal(captured.statusCode, 400);
+});
+
+test("POST handler persists a successful processing result before responding", async () => {
+  const request = { body: createValidRequest() } as Request<
+    Record<string, never>,
+    ProcessEmailResponse | ProcessEmailErrorResponse,
+    unknown
+  >;
+  const captured = createResponse();
+  let savedResult: string | undefined;
+  const resultStore: ResultStore = {
+    async save(pipeline) {
+      savedResult = pipeline.body.result;
+      return { bucket: "results-bucket", object: "results/object.json", resultId: "id-1" };
+    },
+  };
+  const handler = createProcessPostHandler({
+    modelProvider: {
+      async assess() {
+        return {
+          assessment: { result: "OK", confidence: 1, comment: "Safe.", signals: [] },
+          model: "test-model",
+          provider: "test",
+          usage: {},
+        };
+      },
+    },
+  }, resultStore);
+
+  await handler(request, captured.response);
+
+  assert.equal(savedResult, "OK");
+  assert.equal(captured.statusCode, 200);
+});
+
+test("POST handler returns 503 when result persistence fails", async () => {
+  const request = { body: createValidRequest() } as Request<
+    Record<string, never>,
+    ProcessEmailResponse | ProcessEmailErrorResponse,
+    unknown
+  >;
+  const captured = createResponse();
+  const resultStore: ResultStore = {
+    async save() {
+      throw new Error("Storage unavailable");
+    },
+  };
+  const handler = createProcessPostHandler({
+    modelProvider: {
+      async assess() {
+        return {
+          assessment: { result: "OK", confidence: 1, comment: "Safe.", signals: [] },
+          model: "test-model",
+          provider: "test",
+          usage: {},
+        };
+      },
+    },
+  }, resultStore);
+
+  await handler(request, captured.response);
+
+  assert.equal(captured.statusCode, 503);
+  assert.deepEqual(captured.body, { error: "Analysis service temporarily unavailable." });
 });
 
 test("method handler returns 405", () => {

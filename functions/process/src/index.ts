@@ -2,6 +2,7 @@ import { http } from "@google-cloud/functions-framework";
 import express, { type NextFunction, type Request, type Response } from "express";
 
 import { processRequest, type ProcessDependencies } from "./process-request";
+import { createResultStoreFromEnv, type ResultStore } from "./result-store";
 import type { ProcessEmailErrorResponse, ProcessEmailResponse } from "./types";
 
 export const app = express();
@@ -23,15 +24,33 @@ app.use((req: Request, res: Response, next: NextFunction): void => {
   next();
 });
 
-export const createProcessPostHandler = (dependencies?: ProcessDependencies) => (
+export const createProcessPostHandler = (
+  dependencies?: ProcessDependencies,
+  resultStore: ResultStore | undefined = createResultStoreFromEnv()
+) => (
   req: Request<Record<string, never>, ProcessEmailResponse | ProcessEmailErrorResponse, unknown>,
   res: Response<ProcessEmailResponse | ProcessEmailErrorResponse>
 ): Promise<void> => {
   const startedAt = Date.now();
-  return processRequest(req.body, dependencies).then((result) => {
-
+  return processRequest(req.body, dependencies).then(async (result) => {
     if (result.status !== 200) {
       res.status(result.status).json(result.body);
+      return;
+    }
+
+    const durationMs = Date.now() - startedAt;
+    let storedResult;
+    try {
+      if (!resultStore) {
+        throw new Error("PROCESS_RESULTS_BUCKET is not configured.");
+      }
+      storedResult = await resultStore.save(result.pipeline, durationMs);
+    } catch (error) {
+      console.error(JSON.stringify({
+        event: "email_analysis_persistence_failed",
+        errorType: error instanceof Error ? error.name : "unknown",
+      }));
+      res.status(503).json({ error: "Analysis service temporarily unavailable." });
       return;
     }
 
@@ -51,7 +70,10 @@ export const createProcessPostHandler = (dependencies?: ProcessDependencies) => 
         outputTokens: result.pipeline.llm?.usage.outputTokens,
         ragCorpusVersion: result.pipeline.rag?.corpusVersion,
         ragHitCount: result.pipeline.rag?.documents.length,
-        durationMs: Date.now() - startedAt,
+        durationMs,
+        resultId: storedResult?.resultId,
+        storageBucket: storedResult?.bucket,
+        storageObject: storedResult?.object,
       })
     );
 

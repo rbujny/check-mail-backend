@@ -34,8 +34,13 @@ output "api_gateway_backend_service_account" {
 }
 
 output "process_service_account" {
-  description = "Service account used by the process function for Vertex AI and Firestore."
+  description = "Service account used by the process function for Vertex AI, Firestore, and result writes."
   value       = google_service_account.process.email
+}
+
+output "process_results_bucket_name" {
+  description = "Private Cloud Storage bucket containing privacy-safe successful process results."
+  value       = google_storage_bucket.process_results.name
 }
 
 output "jwt_jwks_uri" {
