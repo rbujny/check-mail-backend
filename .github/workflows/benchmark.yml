@@ -30,6 +30,7 @@ on:
           - "10"
           - "50"
           - "100"
+          - "500"
       corpus_version:
         description: RAG corpus version already imported into Firestore
         required: true
