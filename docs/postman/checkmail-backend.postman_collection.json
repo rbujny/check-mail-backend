@@ -171,7 +171,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"headers\": {\n    \"from\": \"Sender <sender@example.com>\",\n    \"to\": \"recipient@example.net\",\n    \"subject\": \"Project status\"\n  },\n  \"receivedChain\": [\"from mail.example.com by mx.example.net with ESMTPS\"],\n  \"securityVerdicts\": { \"spf\": \"pass\", \"dkim\": \"pass\", \"dmarc\": \"pass\" },\n  \"body\": \"The weekly project status is attached.\",\n  \"truncated\": false,\n  \"links\": [\"https://example.com/status\"]\n}",
+              "raw": "{\n  \"headers\": {\n    \"from\": \"Sender <sender@example.com>\",\n    \"to\": \"recipient@example.net\",\n    \"subject\": \"Project status\"\n  },\n  \"receivedChain\": [\"from mail.example.com by mx.example.net with ESMTPS\"],\n  \"securityVerdicts\": { \"spf\": \"pass\", \"dkim\": \"pass\", \"dmarc\": \"pass\" },\n  \"body\": \"The weekly project status is attached.\",\n  \"truncated\": false,\n  \"links\": [\"https://example.com/status\"],\n  \"model\": \"gemini-3.5-flash-lite\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
@@ -509,6 +509,36 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"headers\": {},\n  \"receivedChain\": [],\n  \"securityVerdicts\": { \"spf\": \"unknown\" },\n  \"body\": \"\",\n  \"truncated\": false,\n  \"links\": []\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/process?key={{apiKey}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["process"],
+              "query": [{ "key": "key", "value": "{{apiKey}}" }]
+            }
+          }
+        },
+        {
+          "name": "Unsupported runtime model",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('expectedStatuses', '[400]');",
+                  "pm.variables.set('expectedError', 'Request body does not match the ProcessedEmailData contract.');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"headers\": {},\n  \"receivedChain\": [],\n  \"securityVerdicts\": {},\n  \"body\": \"\",\n  \"truncated\": false,\n  \"links\": [],\n  \"model\": \"arbitrary-model\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {

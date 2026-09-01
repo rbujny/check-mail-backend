@@ -6,10 +6,12 @@
 
 1. create one query embedding with `gemini-embedding-001`
 2. retrieve the five closest documents from the active, versioned Firestore corpus
-3. send a minimized representation of the email, heuristic signals, and retrieved examples to the active model
+3. send a minimized representation of the email, heuristic signals, and retrieved examples to the selected model
 4. validate the model's strict JSON response and return only `result` and `comment`
 
 RAG and model calls are retried once. Each external attempt has a 10-second default timeout, and API Gateway allows the process backend up to 55 seconds so the function can still return a controlled response. If either dependency still fails, the endpoint returns `503`; it does not silently downgrade to a clean result.
+
+The request may select an allowlisted managed model at runtime through the optional `model` field: `gemini-3.5-flash-lite` or `gemini-3.7-flash`. Omitting the field uses the Terraform-configured deployment default. The backend maps each value to a fixed provider and Vertex AI location, so clients cannot inject arbitrary model IDs, providers, endpoints, or regions. RAG remains controlled by deployment configuration and decisive heuristic phishing results bypass the selected model. Claude remains available to benchmarks and deployment-level configuration but is not exposed through request-level selection. Local Gemma is intentionally benchmark-only until it is exposed through a network endpoint reachable from the deployed process function.
 
 ## Model matrix
 
