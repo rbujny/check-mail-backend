@@ -22,3 +22,18 @@ resource "google_storage_bucket_iam_member" "process_results_writer" {
   role   = "roles/storage.objectCreator"
   member = "serviceAccount:${google_service_account.process.email}"
 }
+
+resource "google_storage_bucket" "benchmark_summaries" {
+  name                        = "${var.project_id}-benchmark-summaries"
+  location                    = var.region
+  project                     = var.project_id
+  force_destroy               = false
+  public_access_prevention    = "enforced"
+  uniform_bucket_level_access = true
+}
+
+resource "google_storage_bucket_iam_member" "benchmark_summaries_writer" {
+  bucket = google_storage_bucket.benchmark_summaries.name
+  role   = "roles/storage.objectCreator"
+  member = "serviceAccount:${var.github_actions_service_account_email}"
+}

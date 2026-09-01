@@ -1,6 +1,8 @@
+import { randomUUID } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 
 import { analyzeEmail } from "./analyzer";
+import { createBenchmarkSummary } from "./benchmark-summary";
 import { getProcessConfig, type ProcessConfig } from "./config";
 import {
   createModelProvider,
@@ -8,6 +10,7 @@ import {
   type ModelRequestOptions,
 } from "./model-provider";
 import { createRagRetriever } from "./rag";
+import { CloudStorageJsonWriter } from "./result-store";
 import type {
   AnalysisResult,
   ModelAssessment,
@@ -147,13 +150,16 @@ const metricsFor = (matrix: ConfusionMatrix, total: number) => {
 const main = async (): Promise<void> => {
   const datasetPath = process.argv[2];
   const outputPath = process.argv[3] ?? "benchmark-report.json";
+  const summaryOutputPath = process.argv[4] ?? "benchmark-summary.json";
   const limit = Number.parseInt(process.env.BENCHMARK_MAX_RECORDS ?? "500", 10);
   const maxConsecutiveFailures = Number.parseInt(
     process.env.BENCHMARK_MAX_CONSECUTIVE_FAILURES ?? "3",
     10
   );
   if (!datasetPath) {
-    throw new Error("Usage: npm run benchmark -- <evaluation.jsonl> [report.json]");
+    throw new Error(
+      "Usage: npm run benchmark -- <evaluation.jsonl> [report.json] [summary.json]"
+    );
   }
   if (!Number.isInteger(limit) || limit <= 0) {
     throw new Error("BENCHMARK_MAX_RECORDS must be a positive integer.");
@@ -201,6 +207,7 @@ const main = async (): Promise<void> => {
   const report: Record<string, unknown> = {
     generatedAt: new Date().toISOString(),
     modelEligibleOnly,
+    ragCorpusVersion: process.env.RAG_CORPUS_VERSION,
     records: records.length,
     selectedVariants: benchmarkVariants.map((variant) => variant.id),
     note: needsRag
@@ -383,6 +390,27 @@ const main = async (): Promise<void> => {
 
   await writeFile(outputPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
   console.info(`Benchmark report written to ${outputPath}`);
+
+  const summary = createBenchmarkSummary(report);
+  await writeFile(summaryOutputPath, `${JSON.stringify(summary, null, 2)}\n`, "utf8");
+  console.info(`Benchmark summary written to ${summaryOutputPath}`);
+
+  const summaryBucket = process.env.BENCHMARK_SUMMARY_BUCKET;
+  if (summaryBucket) {
+    const [date] = String(summary.generatedAt).split("T", 1);
+    const [year, month, day] = date.split("-");
+    const run = process.env.GITHUB_RUN_ID
+      ? `run-${process.env.GITHUB_RUN_ID}-attempt-${process.env.GITHUB_RUN_ATTEMPT ?? "1"}`
+      : randomUUID();
+    const variant = benchmarkVariants.map((item) => item.id).join("+");
+    const object = `summaries/${year}/${month}/${day}/${summary.generatedAt}-${variant}-${run}.json`;
+    await new CloudStorageJsonWriter(summaryBucket).write(object, summary);
+    console.info(JSON.stringify({
+      event: "benchmark_summary_uploaded",
+      bucket: summaryBucket,
+      object,
+    }));
+  }
 
   const failures = Object.values(report.variants as Record<string, { modelFailures: number }>)
     .reduce((total, variant) => total + variant.modelFailures, 0);

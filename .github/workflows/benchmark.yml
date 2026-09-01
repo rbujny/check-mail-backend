@@ -86,12 +86,13 @@ jobs:
           BENCHMARK_MAX_RECORDS: ${{ inputs.max_records }}
           BENCHMARK_MODEL_ELIGIBLE_ONLY: "true"
           BENCHMARK_MAX_CONSECUTIVE_FAILURES: "3"
+          BENCHMARK_SUMMARY_BUCKET: ${{ secrets.CHECKMAIL_PROJECT_ID }}-benchmark-summaries
           GOOGLE_CLOUD_PROJECT: ${{ secrets.CHECKMAIL_PROJECT_ID }}
           RAG_CORPUS_VERSION: ${{ inputs.corpus_version }}
           GEMMA_ENDPOINT: ${{ vars.GEMMA_ENDPOINT }}
           GEMMA_MODEL_ID: ${{ vars.GEMMA_MODEL_ID }}
           LLM_TIMEOUT_MS: "60000"
-        run: npm run benchmark -- ../../datasets/generated/evaluation.jsonl benchmark-report.json
+        run: npm run benchmark -- ../../datasets/generated/evaluation.jsonl benchmark-report.json benchmark-summary.json
 
       - name: Upload benchmark report
         if: always()
@@ -101,3 +102,12 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
           path: functions/process/benchmark-report.json
+
+      - name: Upload benchmark summary artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkmail-benchmark-summary-${{ inputs.variant }}-${{ inputs.corpus_version }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: functions/process/benchmark-summary.json

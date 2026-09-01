@@ -8,6 +8,16 @@ variable "region" {
   type        = string
 }
 
+variable "github_actions_service_account_email" {
+  description = "Service account email impersonated by GitHub Actions deployment and benchmark workflows."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[^@]+@[^@]+\\.iam\\.gserviceaccount\\.com$", var.github_actions_service_account_email))
+    error_message = "github_actions_service_account_email must be a Google service account email."
+  }
+}
+
 variable "function_env_overrides" {
   description = "Per-function environment variable overrides keyed by function directory name."
   type        = map(map(string))
