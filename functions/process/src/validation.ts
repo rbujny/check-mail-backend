@@ -1,6 +1,7 @@
 import {
   dkimVerdictValues,
   dmarcVerdictValues,
+  runtimeModelValues,
   spfVerdictValues,
   type ProcessEmailRequest,
 } from "./types";
@@ -13,7 +14,9 @@ const requestKeys = [
   "body",
   "truncated",
   "links",
+  "model",
 ] as const;
+const requiredRequestKeys = requestKeys.filter((key) => key !== "model");
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -37,7 +40,7 @@ export const isProcessedEmailRequest = (value: unknown): value is ProcessEmailRe
     return false;
   }
 
-  if (!hasOnlyKeys(value, requestKeys) || !requestKeys.every((key) => key in value)) {
+  if (!hasOnlyKeys(value, requestKeys) || !requiredRequestKeys.every((key) => key in value)) {
     return false;
   }
 
@@ -72,6 +75,7 @@ export const isProcessedEmailRequest = (value: unknown): value is ProcessEmailRe
     typeof value.body === "string" &&
     value.body.length <= 1000 &&
     typeof value.truncated === "boolean" &&
-    isStringArray(value.links, 50, 2048)
+    isStringArray(value.links, 50, 2048) &&
+    (value.model === undefined || runtimeModelValues.includes(value.model as never))
   );
 };

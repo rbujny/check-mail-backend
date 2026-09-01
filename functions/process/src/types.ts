@@ -1,6 +1,12 @@
 export const spfVerdictValues = ["pass", "fail", "softfail", "none"] as const;
 export const dkimVerdictValues = ["pass", "fail", "none"] as const;
 export const dmarcVerdictValues = ["pass", "fail", "none"] as const;
+export const runtimeModelValues = [
+  "gemini-3.5-flash-lite",
+  "gemini-3.7-flash",
+] as const;
+
+export type RuntimeModel = (typeof runtimeModelValues)[number];
 
 export type ProcessedEmailHeaders = {
   from?: string;
@@ -23,6 +29,7 @@ export type ProcessEmailRequest = {
   body: string;
   truncated: boolean;
   links: string[];
+  model?: RuntimeModel;
 };
 
 export type ProcessEmailResponse = {
@@ -73,6 +80,7 @@ export type AnalysisPipelineResult = {
   body: ProcessEmailResponse;
   analysis: AnalysisResult;
   llm?: ModelAssessment;
+  modelSelection: RuntimeModel | "default";
   rag?: RagRetrievalResult;
   route: "heuristic" | "llm";
 };

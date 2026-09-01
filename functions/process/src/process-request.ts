@@ -1,12 +1,13 @@
 import { analyzeEmail } from "./analyzer";
-import { getProcessConfig } from "./config";
+import { configForRuntimeModel, getProcessConfig } from "./config";
 import { createModelProvider, type ModelProvider } from "./model-provider";
 import { createRagRetriever, type RagRetriever } from "./rag";
-import type { ProcessEmailRequest, ProcessRequestResult } from "./types";
+import type { ProcessEmailRequest, ProcessRequestResult, RuntimeModel } from "./types";
 import { isProcessedEmailRequest } from "./validation";
 
 export type ProcessDependencies = {
   modelProvider: ModelProvider;
+  modelProviderForRuntimeModel?: (model: RuntimeModel) => ModelProvider;
   ragRetriever?: RagRetriever;
 };
 
@@ -30,6 +31,8 @@ const defaultDependencies = (): ProcessDependencies => {
   const config = getProcessConfig();
   return {
     modelProvider: createModelProvider(config),
+    modelProviderForRuntimeModel: (model) =>
+      createModelProvider(configForRuntimeModel(config, model)),
     ragRetriever: createRagRetriever(config),
   };
 };
@@ -48,6 +51,7 @@ export const processRequest = async (
   }
 
   const request: ProcessEmailRequest = body;
+  const modelSelection = request.model ?? "default";
   const analysis = analyzeEmail(request);
   if (analysis.result === "PHISHING") {
     return {
@@ -56,16 +60,20 @@ export const processRequest = async (
       pipeline: {
         body: { result: analysis.result, comment: analysis.comment },
         analysis,
+        modelSelection,
         route: "heuristic",
       },
     };
   }
 
   try {
+    const modelProvider = request.model && dependencies.modelProviderForRuntimeModel
+      ? dependencies.modelProviderForRuntimeModel(request.model)
+      : dependencies.modelProvider;
     const rag = dependencies.ragRetriever
       ? await withOneRetry(() => dependencies.ragRetriever!.retrieve(request))
       : undefined;
-    const llm = await withOneRetry(() => dependencies.modelProvider.assess({
+    const llm = await withOneRetry(() => modelProvider.assess({
       request,
       heuristic: analysis,
       ragDocuments: rag?.documents ?? [],
@@ -82,6 +90,7 @@ export const processRequest = async (
         body: response,
         analysis,
         llm,
+        modelSelection,
         rag,
         route: "llm",
       },

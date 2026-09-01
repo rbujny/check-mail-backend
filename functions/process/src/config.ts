@@ -1,3 +1,5 @@
+import type { RuntimeModel } from "./types";
+
 export type ProcessConfig = {
   projectId: string;
   vertexLocation: string;
@@ -12,6 +14,32 @@ export type ProcessConfig = {
   embeddingModelId: string;
   embeddingDimension: number;
 };
+
+const runtimeModelConfigs: Record<
+  RuntimeModel,
+  Pick<ProcessConfig, "llmEndpoint" | "llmModelId" | "llmProvider" | "vertexLocation">
+> = {
+  "gemini-3.5-flash-lite": {
+    llmEndpoint: undefined,
+    llmModelId: "gemini-3.5-flash-lite",
+    llmProvider: "gemini",
+    vertexLocation: "global",
+  },
+  "gemini-3.7-flash": {
+    llmEndpoint: undefined,
+    llmModelId: "gemini-3.7-flash",
+    llmProvider: "gemini",
+    vertexLocation: "global",
+  },
+};
+
+export const configForRuntimeModel = (
+  config: ProcessConfig,
+  model: RuntimeModel
+): ProcessConfig => ({
+  ...config,
+  ...runtimeModelConfigs[model],
+});
 
 const integerFromEnv = (name: string, defaultValue: number): number => {
   const raw = process.env[name];

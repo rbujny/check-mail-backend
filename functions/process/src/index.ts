@@ -43,6 +43,7 @@ export const createProcessPostHandler = (dependencies?: ProcessDependencies) => 
         heuristicScore: result.pipeline.analysis.score,
         findingCodes: result.pipeline.analysis.findings.map((finding) => finding.code),
         result: result.body.result,
+        modelSelection: result.pipeline.modelSelection,
         provider: result.pipeline.llm?.provider,
         model: result.pipeline.llm?.model,
         confidence: result.pipeline.llm?.assessment.confidence,

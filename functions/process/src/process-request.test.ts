@@ -36,6 +36,7 @@ test("returns the LLM assessment for a heuristic OK request", async () => {
     comment: "Model classified the message as OK.",
   });
   assert.equal(response.status === 200 && response.pipeline.route, "llm");
+  assert.equal(response.status === 200 && response.pipeline.modelSelection, "default");
 });
 
 test("does not call the LLM for an obvious heuristic phishing request", async () => {
@@ -43,6 +44,7 @@ test("does not call the LLM for an obvious heuristic phishing request", async ()
   const response = await processRequest(
     createValidRequest({
       securityVerdicts: { spf: "fail", dkim: "pass", dmarc: "fail" },
+      model: "gemini-3.7-flash",
     }),
     dependencies({
       modelProvider: {
@@ -50,6 +52,10 @@ test("does not call the LLM for an obvious heuristic phishing request", async ()
           modelCalls += 1;
           return modelProvider().assess({} as never);
         },
+      },
+      modelProviderForRuntimeModel() {
+        modelCalls += 1;
+        return modelProvider();
       },
     })
   );
@@ -87,6 +93,24 @@ test("passes retrieved documents to the model", async () => {
   assert.equal(receivedDocuments, 1);
 });
 
+test("selects an allowlisted runtime model through the provider resolver", async () => {
+  let selectedModel: string | undefined;
+  const response = await processRequest(
+    createValidRequest({ model: "gemini-3.7-flash" }),
+    dependencies({
+      modelProviderForRuntimeModel(model) {
+        selectedModel = model;
+        return modelProvider("WARNING");
+      },
+    })
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(selectedModel, "gemini-3.7-flash");
+  assert.equal(response.status === 200 && response.pipeline.modelSelection, "gemini-3.7-flash");
+  assert.equal(response.body.result, "WARNING");
+});
+
 test("returns 503 after two failed model attempts", async () => {
   let calls = 0;
   const response = await processRequest(createValidRequest(), dependencies({
@@ -119,6 +143,10 @@ test("returns 400 for unsupported fields and oversized input", async () => {
   );
   assert.equal(
     (await processRequest(createValidRequest({ body: "x".repeat(1001) }), dependencies())).status,
+    400
+  );
+  assert.equal(
+    (await processRequest({ ...createValidRequest(), model: "arbitrary-model" }, dependencies())).status,
     400
   );
 });
