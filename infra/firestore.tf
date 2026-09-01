@@ -50,6 +50,7 @@ resource "google_service_account" "process" {
 resource "google_project_iam_member" "process_permissions" {
   for_each = toset([
     "roles/aiplatform.user",
+    "roles/cloudsql.client",
     "roles/datastore.viewer",
     "roles/logging.logWriter",
   ])

@@ -94,7 +94,7 @@ test("POST handler persists a successful processing result before responding", a
   const resultStore: ResultStore = {
     async save(pipeline) {
       savedResult = pipeline.body.result;
-      return { bucket: "results-bucket", object: "results/object.json", resultId: "id-1" };
+      return { resultId: "id-1", storage: "postgresql", table: "process_results" };
     },
   };
   const handler = createProcessPostHandler({

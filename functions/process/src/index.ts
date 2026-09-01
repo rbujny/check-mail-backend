@@ -42,7 +42,7 @@ export const createProcessPostHandler = (
     let storedResult;
     try {
       if (!resultStore) {
-        throw new Error("PROCESS_RESULTS_BUCKET is not configured.");
+        throw new Error("PostgreSQL result persistence is not configured.");
       }
       storedResult = await resultStore.save(result.pipeline, durationMs);
     } catch (error) {
@@ -72,8 +72,8 @@ export const createProcessPostHandler = (
         ragHitCount: result.pipeline.rag?.documents.length,
         durationMs,
         resultId: storedResult?.resultId,
-        storageBucket: storedResult?.bucket,
-        storageObject: storedResult?.object,
+        storage: storedResult?.storage,
+        storageTable: storedResult?.table,
       })
     );
 

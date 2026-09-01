@@ -1,7 +1,13 @@
 import { randomUUID } from "node:crypto";
 
-import { GoogleAuth } from "google-auth-library";
+import { Pool } from "pg";
 
+import {
+  createDatabasePool,
+  databaseConfigFromEnv,
+  initializeProcessResultsSchema,
+  type DatabaseClient,
+} from "./database";
 import type { AnalysisPipelineResult } from "./types";
 
 export type StoredProcessResult = {
@@ -31,38 +37,13 @@ export type StoredProcessResult = {
 };
 
 export type StoredResultReference = {
-  bucket: string;
-  object: string;
   resultId: string;
+  storage: "postgresql";
+  table: "process_results";
 };
 
 export interface ResultStore {
   save(pipeline: AnalysisPipelineResult, durationMs: number): Promise<StoredResultReference>;
-}
-
-export class CloudStorageJsonWriter {
-  private readonly auth = new GoogleAuth({
-    scopes: ["https://www.googleapis.com/auth/devstorage.read_write"],
-  });
-
-  constructor(private readonly bucket: string) {}
-
-  async write(object: string, value: unknown): Promise<void> {
-    const client = await this.auth.getClient();
-    await client.request({
-      url: `https://storage.googleapis.com/upload/storage/v1/b/${encodeURIComponent(this.bucket)}/o`,
-      method: "POST",
-      params: {
-        ifGenerationMatch: 0,
-        name: object,
-        uploadType: "media",
-      },
-      headers: {
-        "content-type": "application/json; charset=utf-8",
-      },
-      data: JSON.stringify(value),
-    });
-  }
 }
 
 export const buildStoredProcessResult = (
@@ -100,17 +81,23 @@ export const buildStoredProcessResult = (
   } : {}),
 });
 
-const objectNameFor = (record: StoredProcessResult): string => {
-  const [date] = record.createdAt.split("T", 1);
-  const [year, month, day] = date.split("-");
-  return `results/${year}/${month}/${day}/${record.createdAt}-${record.id}.json`;
-};
+export class PostgresResultStore implements ResultStore {
+  private initialized: Promise<void> | undefined;
 
-export class CloudStorageResultStore implements ResultStore {
-  private readonly writer: CloudStorageJsonWriter;
+  constructor(private readonly getClient: () => Promise<DatabaseClient>) {}
 
-  constructor(private readonly bucket: string) {
-    this.writer = new CloudStorageJsonWriter(bucket);
+  private async initialize(client: DatabaseClient): Promise<void> {
+    await initializeProcessResultsSchema(client);
+  }
+
+  private async ensureInitialized(client: DatabaseClient): Promise<void> {
+    if (!this.initialized) {
+      this.initialized = this.initialize(client).catch((error: unknown) => {
+        this.initialized = undefined;
+        throw error;
+      });
+    }
+    await this.initialized;
   }
 
   async save(
@@ -118,14 +105,60 @@ export class CloudStorageResultStore implements ResultStore {
     durationMs: number
   ): Promise<StoredResultReference> {
     const record = buildStoredProcessResult(pipeline, durationMs);
-    const object = objectNameFor(record);
-    await this.writer.write(object, record);
+    const client = await this.getClient();
+    await this.ensureInitialized(client);
+    await client.query(
+      `INSERT INTO process_results (
+        id, created_at, duration_ms, final_result, comment, route,
+        heuristic_result, heuristic_score, model_selection, provider, model,
+        confidence, input_tokens, output_tokens, rag_corpus_version, rag_hit_count, details
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::jsonb
+      )`,
+      [
+        record.id,
+        record.createdAt,
+        record.durationMs,
+        record.result.result,
+        record.result.comment,
+        record.route,
+        record.heuristic.result,
+        record.heuristic.score,
+        record.modelSelection,
+        record.llm?.provider ?? null,
+        record.llm?.model ?? null,
+        record.llm?.assessment.confidence ?? null,
+        record.llm?.usage.inputTokens ?? null,
+        record.llm?.usage.outputTokens ?? null,
+        record.rag?.corpusVersion ?? null,
+        record.rag?.hitCount ?? null,
+        JSON.stringify(record),
+      ]
+    );
 
-    return { bucket: this.bucket, object, resultId: record.id };
+    return { resultId: record.id, storage: "postgresql", table: "process_results" };
   }
 }
 
 export const createResultStoreFromEnv = (): ResultStore | undefined => {
-  const bucket = process.env.PROCESS_RESULTS_BUCKET;
-  return bucket ? new CloudStorageResultStore(bucket) : undefined;
+  const config = databaseConfigFromEnv();
+  if (!config) {
+    return undefined;
+  }
+
+  let pool: Promise<Pool> | undefined;
+  const getPool = (): Promise<Pool> => {
+    if (!pool) {
+      pool = (async () => {
+        const connection = await createDatabasePool(config);
+        return connection.pool;
+      })().catch((error: unknown) => {
+        pool = undefined;
+        throw error;
+      });
+    }
+    return pool;
+  };
+
+  return new PostgresResultStore(getPool);
 };

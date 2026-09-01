@@ -9,17 +9,21 @@
     "start": "functions-framework --target=processHttp",
     "test": "npm run build && node --test dist/*.test.js",
     "rag:ingest": "npm run build && node dist/rag-ingest.js",
-    "benchmark": "npm run build && node dist/benchmark.js"
+    "benchmark": "npm run build && node dist/benchmark.js",
+    "db:migrate": "npm run build && node dist/db-migrate.js"
   },
   "dependencies": {
+    "@google-cloud/cloud-sql-connector": "1.10.0",
     "@google-cloud/firestore": "^7.11.5",
     "@google-cloud/functions-framework": "^3.4.5",
     "express": "^5.1.0",
-    "google-auth-library": "^10.3.0"
+    "google-auth-library": "^10.3.0",
+    "pg": "^8.23.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.3",
     "@types/node": "^24.0.1",
+    "@types/pg": "^8.23.1",
     "typescript": "^5.8.3"
   }
 }

@@ -20,12 +20,13 @@ resource "google_sql_database_instance" "postgres" {
   deletion_protection = true
 
   settings {
-    availability_type = "ZONAL"
-    disk_autoresize   = false
-    disk_size         = 10
-    disk_type         = "PD_SSD"
-    edition           = "ENTERPRISE"
-    tier              = local.cloudsql_postgres_tier
+    availability_type     = "ZONAL"
+    connector_enforcement = "REQUIRED"
+    disk_autoresize       = false
+    disk_size             = 10
+    disk_type             = "PD_SSD"
+    edition               = "ENTERPRISE"
+    tier                  = local.cloudsql_postgres_tier
 
     ip_configuration {
       ipv4_enabled = true
@@ -46,6 +47,12 @@ resource "google_sql_user" "postgres_app_user" {
   name     = local.cloudsql_postgres_user_name
   password = var.db_password
   project  = var.project_id
+}
+
+resource "google_project_iam_member" "github_actions_cloudsql_client" {
+  project = var.project_id
+  role    = "roles/cloudsql.client"
+  member  = "serviceAccount:${var.github_actions_service_account_email}"
 }
 
 output "cloudsql_postgres_connection_name" {

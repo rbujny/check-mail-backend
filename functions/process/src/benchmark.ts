@@ -3,6 +3,7 @@ import { readFile, writeFile } from "node:fs/promises";
 
 import { analyzeEmail } from "./analyzer";
 import { createBenchmarkSummary } from "./benchmark-summary";
+import { CloudStorageJsonWriter } from "./cloud-storage-json-writer";
 import { getProcessConfig, type ProcessConfig } from "./config";
 import {
   createModelProvider,
@@ -10,7 +11,6 @@ import {
   type ModelRequestOptions,
 } from "./model-provider";
 import { createRagRetriever } from "./rag";
-import { CloudStorageJsonWriter } from "./result-store";
 import type {
   AnalysisResult,
   ModelAssessment,

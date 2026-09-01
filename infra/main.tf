@@ -104,18 +104,21 @@ resource "google_cloudfunctions2_function" "functions" {
         JWT_PRIVATE_KEY = var.jwt_private_key
       } : {},
       each.key == "process" ? {
-        EMBEDDING_DIMENSION    = tostring(var.rag_embedding_dimension)
-        EMBEDDING_MODEL_ID     = var.rag_embedding_model_id
-        GOOGLE_CLOUD_PROJECT   = var.project_id
-        LLM_MODEL_ID           = var.llm_model_id
-        LLM_PROVIDER           = var.llm_provider
-        LLM_TIMEOUT_MS         = tostring(var.llm_timeout_ms)
-        RAG_COLLECTION         = var.rag_collection
-        RAG_CORPUS_VERSION     = var.rag_corpus_version
-        RAG_ENABLED            = tostring(var.rag_enabled)
-        RAG_TOP_K              = tostring(var.rag_top_k)
-        PROCESS_RESULTS_BUCKET = google_storage_bucket.process_results.name
-        VERTEX_LOCATION        = var.vertex_ai_location
+        DB_INSTANCE_CONNECTION_NAME = google_sql_database_instance.postgres.connection_name
+        DB_NAME                     = google_sql_database.postgres_app.name
+        DB_PASSWORD                 = var.db_password
+        DB_USER                     = google_sql_user.postgres_app_user.name
+        EMBEDDING_DIMENSION         = tostring(var.rag_embedding_dimension)
+        EMBEDDING_MODEL_ID          = var.rag_embedding_model_id
+        GOOGLE_CLOUD_PROJECT        = var.project_id
+        LLM_MODEL_ID                = var.llm_model_id
+        LLM_PROVIDER                = var.llm_provider
+        LLM_TIMEOUT_MS              = tostring(var.llm_timeout_ms)
+        RAG_COLLECTION              = var.rag_collection
+        RAG_CORPUS_VERSION          = var.rag_corpus_version
+        RAG_ENABLED                 = tostring(var.rag_enabled)
+        RAG_TOP_K                   = tostring(var.rag_top_k)
+        VERTEX_LOCATION             = var.vertex_ai_location
       } : {},
       lookup(var.function_env_overrides, each.key, {}),
     )
@@ -128,6 +131,5 @@ resource "google_cloudfunctions2_function" "functions" {
   depends_on = [
     google_project_service.required,
     google_project_iam_member.process_permissions,
-    google_storage_bucket_iam_member.process_results_writer,
   ]
 }

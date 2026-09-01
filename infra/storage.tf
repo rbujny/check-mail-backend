@@ -17,12 +17,6 @@ resource "google_storage_bucket" "process_results" {
   }
 }
 
-resource "google_storage_bucket_iam_member" "process_results_writer" {
-  bucket = google_storage_bucket.process_results.name
-  role   = "roles/storage.objectCreator"
-  member = "serviceAccount:${google_service_account.process.email}"
-}
-
 resource "google_storage_bucket" "benchmark_summaries" {
   name                        = "${var.project_id}-benchmark-summaries"
   location                    = var.region

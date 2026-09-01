@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildStoredProcessResult } from "./result-store";
+import { buildStoredProcessResult, PostgresResultStore } from "./result-store";
 import type { AnalysisPipelineResult } from "./types";
 
 const pipeline: AnalysisPipelineResult = {
@@ -53,4 +53,32 @@ test("builds a privacy-safe versioned processing result", () => {
   assert.deepEqual(result.rag?.documentIds, ["doc-1"]);
   assert.doesNotMatch(serialized, /raw output must not be persisted/u);
   assert.doesNotMatch(serialized, /retrieved text must not be persisted/u);
+});
+
+test("initializes the PostgreSQL schema once and inserts privacy-safe results", async () => {
+  const queries: Array<{ text: string; values?: unknown[] }> = [];
+  const store = new PostgresResultStore(async () => ({
+    async query(text: string, values?: unknown[]) {
+      queries.push({ text, values });
+      return {};
+    },
+  }));
+
+  const first = await store.save(pipeline, 123);
+  await store.save(pipeline, 456);
+
+  const inserts = queries.filter((query) => query.text.includes("INSERT INTO process_results"));
+  const schemaInitializations = queries.filter((query) =>
+    query.text.includes("CREATE TABLE IF NOT EXISTS process_results")
+  );
+  const storedJson = String(inserts[0]?.values?.[16]);
+
+  assert.equal(first.storage, "postgresql");
+  assert.equal(first.table, "process_results");
+  assert.equal(schemaInitializations.length, 1);
+  assert.equal(inserts.length, 2);
+  assert.equal(inserts[0]?.values?.[3], "WARNING");
+  assert.equal(inserts[0]?.values?.[10], "test-model");
+  assert.doesNotMatch(storedJson, /raw output must not be persisted/u);
+  assert.doesNotMatch(storedJson, /retrieved text must not be persisted/u);
 });

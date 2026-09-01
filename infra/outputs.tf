@@ -38,8 +38,8 @@ output "process_service_account" {
   value       = google_service_account.process.email
 }
 
-output "process_results_bucket_name" {
-  description = "Private Cloud Storage bucket containing privacy-safe successful process results."
+output "legacy_process_results_bucket_name" {
+  description = "Private Cloud Storage bucket retaining process results written before PostgreSQL migration."
   value       = google_storage_bucket.process_results.name
 }
 

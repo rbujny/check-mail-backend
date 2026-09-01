@@ -25,7 +25,7 @@ variable "function_env_overrides" {
 }
 
 variable "process_results_retention_days" {
-  description = "Number of days successful process result objects are retained in Cloud Storage."
+  description = "Number of days legacy process result objects are retained in Cloud Storage."
   type        = number
   default     = 90
 

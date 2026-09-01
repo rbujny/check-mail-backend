@@ -9,7 +9,7 @@
 3. send a minimized representation of the email, heuristic signals, and retrieved examples to the selected model
 4. validate the model's strict JSON response and return only `result` and `comment`
 
-RAG and model calls are retried once. Each external attempt has a 10-second default timeout, and API Gateway allows the process backend up to 55 seconds so the function can still return a controlled response. If either dependency still fails, the endpoint returns `503`; it does not silently downgrade to a clean result. A successful analysis is returned only after its result record has also been written to Cloud Storage; storage failures likewise return `503`.
+RAG and model calls are retried once. Each external attempt has a 10-second default timeout, and API Gateway allows the process backend up to 55 seconds so the function can still return a controlled response. If either dependency still fails, the endpoint returns `503`; it does not silently downgrade to a clean result. A successful analysis is returned only after its result record has also been written to PostgreSQL; database failures likewise return `503`.
 
 The request may select an allowlisted managed model at runtime through the optional `model` field: `gemini-3.5-flash-lite` or `gemini-3.7-flash`. Omitting the field uses the Terraform-configured deployment default. The backend maps each value to a fixed provider and Vertex AI location, so clients cannot inject arbitrary model IDs, providers, endpoints, or regions. RAG remains controlled by deployment configuration and decisive heuristic phishing results bypass the selected model. Claude remains available to benchmarks and deployment-level configuration but is not exposed through request-level selection. Local Gemma is intentionally benchmark-only until it is exposed through a network endpoint reachable from the deployed process function.
 
@@ -32,11 +32,11 @@ The prompt treats both the email and retrieved examples as untrusted data to red
 
 ## Processing result persistence
 
-Terraform creates a private regional Cloud Storage bucket named `<project-id>-process-results`. Uniform bucket-level access and public access prevention are enforced. The process function service account receives only `roles/storage.objectCreator` on this bucket, so the runtime can create records but cannot read, list, overwrite, or delete them.
+Each successful request inserts one row into the Cloud SQL PostgreSQL `process_results` table. Indexed columns cover creation time, final result, route, heuristic result/score, selected and actual model, provider, confidence, token usage, RAG corpus version/hit count, and duration. A `details` JSONB column contains the schema-versioned privacy-safe analysis record, including findings and RAG document identifiers. It excludes the request email, sender and recipient addresses, full headers, URL values, raw model output, and retrieved document text.
 
-Each successful request writes one schema-versioned JSON object under `results/YYYY/MM/DD/<timestamp>-<uuid>.json`. The record contains the final result/comment, route and duration, heuristic score/findings, selected and actual model metadata, parsed assessment and token usage, and RAG corpus version/document identifiers when applicable. It excludes the request email, sender and recipient addresses, full headers, URL values, raw model output, and retrieved document text.
+The deployment workflow runs the idempotent `db:migrate` command after Terraform apply to create the table and indexes before traffic uses them. The process runtime repeats the same schema check before its first insert as a fail-safe. It uses a two-connection pool and the official Cloud SQL Node.js Connector over public IP; connector enforcement rejects direct database connections. The function and deployment service accounts have `roles/cloudsql.client`, while database authentication uses the Terraform-managed application user and password.
 
-Objects are deleted by a lifecycle rule after 90 days by default. Set the non-secret Terraform variable `process_results_retention_days` to a different positive whole number when policy requires another retention period. The bucket name is exposed as the `process_results_bucket_name` Terraform output.
+The old `<project-id>-process-results` Cloud Storage bucket remains managed temporarily so previously written objects are not destroyed during migration. The process function no longer receives its name or write permission, so new results cannot enter it. Existing objects continue to follow the configurable 90-day lifecycle rule and the bucket is exposed as `legacy_process_results_bucket_name`.
 
 ## RAG corpus
 

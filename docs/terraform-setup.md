@@ -51,7 +51,7 @@ The public JWKS is versioned in `infra/jwks.json` and published by Terraform fro
 
 The `/process` backend URL is derived directly from the Terraform-managed `process` Cloud Function and does not require a repository secret.
 
-Terraform enables Vertex AI, creates the Firestore vector index, a private processing-result bucket, and a separate private benchmark-summary bucket, and assigns a dedicated runtime service account to the process function. The process service account can create result objects but cannot read, list, overwrite, or delete them. Result retention defaults to 90 days and can be changed with the non-secret `TF_VAR_process_results_retention_days` variable. The GitHub workflow identity receives create-only access to benchmark summaries, which are retained until explicitly deleted. The production model, RAG, and retention settings have checked-in non-secret defaults, so no additional GitHub secret is required. Override them only when needed by adding the corresponding `TF_VAR_*` value to the deployment workflow; the available variables are documented in `docs/llm-rag-analysis.md` and `infra/variables.tf`.
+Terraform enables Vertex AI, creates the Firestore vector index and a private benchmark-summary bucket, and assigns a dedicated runtime service account to the process function. The process service account receives Cloud SQL Client access and connects with the official Node.js Connector; direct Cloud SQL connections are rejected by connector enforcement. The existing process-result bucket remains managed only as a 90-day legacy archive and has no runtime writer binding. The GitHub workflow identity receives create-only access to benchmark summaries, which are retained until explicitly deleted. The production model and RAG settings have checked-in non-secret defaults, so no additional GitHub secret is required. Override them only when needed by adding the corresponding `TF_VAR_*` value to the deployment workflow; the available variables are documented in `docs/llm-rag-analysis.md` and `infra/variables.tf`.
 
 The Workload Identity deployment service account must be able to enable APIs, manage Firestore indexes, create service accounts and IAM bindings, and deploy functions. The manual RAG and benchmark workflows also use this identity and require Vertex AI user and Firestore data access in the target project.
 
@@ -66,6 +66,8 @@ The workflow runs:
 3. `terraform validate -no-color`
 4. `terraform plan -input=false -no-color -out=tfplan`
 5. `terraform apply -input=false -auto-approve -parallelism=1 tfplan`
+6. `npm ci` in `functions/process`
+7. `npm run db:migrate`
 
 Apply is serialized because multiple Cloud Functions Gen2 created concurrently can race while Google Cloud initializes their shared regional source bucket.
 
@@ -73,6 +75,6 @@ Do not run `terraform apply` locally against the shared environment.
 
 ## PostgreSQL setup
 
-Terraform provisions a single-zone PostgreSQL Enterprise instance using the shared-core `db-f1-micro` tier, an application database, and an application user. The edition is explicit because PostgreSQL 16 and newer otherwise default to Enterprise Plus, which does not support shared-core tiers. The database password is provided through `CHECKMAIL_DB_PASSWORD`.
+Terraform provisions a single-zone PostgreSQL Enterprise instance using the shared-core `db-f1-micro` tier, an application database, and an application user. The edition is explicit because PostgreSQL 16 and newer otherwise default to Enterprise Plus, which does not support shared-core tiers. The database password is provided through `CHECKMAIL_DB_PASSWORD` and passed to the process function and the post-apply migration step. The migration idempotently creates the `process_results` table and indexes; the runtime repeats this check as a fail-safe before its first insert.
 
 Review `infra/cloudsql.tf` before changing database sizing, networking, or naming.
