@@ -69,7 +69,7 @@ paths:
         "405":
           description: Method not allowed. Only POST is supported.
         "503":
-          description: The LLM or RAG dependency is temporarily unavailable.
+          description: The LLM, RAG, or result-storage dependency is temporarily unavailable.
 components:
   securitySchemes:
     ApiKey:

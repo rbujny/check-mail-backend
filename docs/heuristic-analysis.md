@@ -93,6 +93,6 @@ The function does not log email bodies, headers, sender or recipient addresses, 
 - `receivedChain` contents are not parsed beyond detecting an empty chain
 - no live domain age, reputation, malware, or threat-intelligence feed is used
 - heuristics have not yet been calibrated against a labeled production dataset
-- no scan results are persisted
+- successful privacy-safe scan results are persisted in private Cloud Storage, but feedback and audit-event models are not yet implemented
 
 Future tuning should use labeled messages and track false-positive and false-negative rates before changing thresholds or rule weights.
