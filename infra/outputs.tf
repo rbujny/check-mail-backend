@@ -48,6 +48,11 @@ output "benchmark_summaries_bucket_name" {
   value       = google_storage_bucket.benchmark_summaries.name
 }
 
+output "benchmark_reports_bucket_name" {
+  description = "Private Cloud Storage bucket containing detailed benchmark reports."
+  value       = google_storage_bucket.benchmark_reports.name
+}
+
 output "jwt_jwks_uri" {
   description = "Public Cloud Storage URL used by API Gateway to verify JWT signatures."
   value       = local.jwt_jwks_uri

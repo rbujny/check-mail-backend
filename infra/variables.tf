@@ -35,6 +35,17 @@ variable "process_results_retention_days" {
   }
 }
 
+variable "benchmark_reports_retention_days" {
+  description = "Number of days detailed benchmark reports are retained in Cloud Storage."
+  type        = number
+  default     = 90
+
+  validation {
+    condition     = var.benchmark_reports_retention_days > 0 && floor(var.benchmark_reports_retention_days) == var.benchmark_reports_retention_days
+    error_message = "benchmark_reports_retention_days must be a positive whole number."
+  }
+}
+
 variable "llm_provider" {
   description = "Active production LLM provider for non-phishing heuristic results."
   type        = string

@@ -31,3 +31,28 @@ resource "google_storage_bucket_iam_member" "benchmark_summaries_writer" {
   role   = "roles/storage.objectCreator"
   member = "serviceAccount:${var.github_actions_service_account_email}"
 }
+
+resource "google_storage_bucket" "benchmark_reports" {
+  name                        = "${var.project_id}-benchmark-reports"
+  location                    = var.region
+  project                     = var.project_id
+  force_destroy               = false
+  public_access_prevention    = "enforced"
+  uniform_bucket_level_access = true
+
+  lifecycle_rule {
+    condition {
+      age = var.benchmark_reports_retention_days
+    }
+
+    action {
+      type = "Delete"
+    }
+  }
+}
+
+resource "google_storage_bucket_iam_member" "benchmark_reports_writer" {
+  bucket = google_storage_bucket.benchmark_reports.name
+  role   = "roles/storage.objectCreator"
+  member = "serviceAccount:${var.github_actions_service_account_email}"
+}

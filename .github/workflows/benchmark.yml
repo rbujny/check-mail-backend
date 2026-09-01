@@ -86,6 +86,7 @@ jobs:
           BENCHMARK_MAX_RECORDS: ${{ inputs.max_records }}
           BENCHMARK_MODEL_ELIGIBLE_ONLY: "true"
           BENCHMARK_MAX_CONSECUTIVE_FAILURES: "3"
+          BENCHMARK_REPORT_BUCKET: ${{ secrets.CHECKMAIL_PROJECT_ID }}-benchmark-reports
           BENCHMARK_SUMMARY_BUCKET: ${{ secrets.CHECKMAIL_PROJECT_ID }}-benchmark-summaries
           GOOGLE_CLOUD_PROJECT: ${{ secrets.CHECKMAIL_PROJECT_ID }}
           RAG_CORPUS_VERSION: ${{ inputs.corpus_version }}

@@ -395,15 +395,28 @@ const main = async (): Promise<void> => {
   await writeFile(summaryOutputPath, `${JSON.stringify(summary, null, 2)}\n`, "utf8");
   console.info(`Benchmark summary written to ${summaryOutputPath}`);
 
+  const [date] = String(summary.generatedAt).split("T", 1);
+  const [year, month, day] = date.split("-");
+  const run = process.env.GITHUB_RUN_ID
+    ? `run-${process.env.GITHUB_RUN_ID}-attempt-${process.env.GITHUB_RUN_ATTEMPT ?? "1"}`
+    : randomUUID();
+  const variant = benchmarkVariants.map((item) => item.id).join("+");
+  const objectName = `${summary.generatedAt}-${variant}-${run}.json`;
+
+  const reportBucket = process.env.BENCHMARK_REPORT_BUCKET;
+  if (reportBucket) {
+    const object = `reports/${year}/${month}/${day}/${objectName}`;
+    await new CloudStorageJsonWriter(reportBucket).write(object, report);
+    console.info(JSON.stringify({
+      event: "benchmark_report_uploaded",
+      bucket: reportBucket,
+      object,
+    }));
+  }
+
   const summaryBucket = process.env.BENCHMARK_SUMMARY_BUCKET;
   if (summaryBucket) {
-    const [date] = String(summary.generatedAt).split("T", 1);
-    const [year, month, day] = date.split("-");
-    const run = process.env.GITHUB_RUN_ID
-      ? `run-${process.env.GITHUB_RUN_ID}-attempt-${process.env.GITHUB_RUN_ATTEMPT ?? "1"}`
-      : randomUUID();
-    const variant = benchmarkVariants.map((item) => item.id).join("+");
-    const object = `summaries/${year}/${month}/${day}/${summary.generatedAt}-${variant}-${run}.json`;
+    const object = `summaries/${year}/${month}/${day}/${objectName}`;
     await new CloudStorageJsonWriter(summaryBucket).write(object, summary);
     console.info(JSON.stringify({
       event: "benchmark_summary_uploaded",

@@ -15,7 +15,7 @@ Configure the following repository variables for Workload Identity Federation:
 - `GCP_WORKLOAD_IDENTITY_PROVIDER`
 - `GCP_DEPLOY_SERVICE_ACCOUNT`
 
-The deploy workflow also maps `GCP_DEPLOY_SERVICE_ACCOUNT` to `TF_VAR_github_actions_service_account_email`. Terraform uses that email to grant create-only access to the private benchmark-summary bucket used by the benchmark workflow.
+The deploy workflow also maps `GCP_DEPLOY_SERVICE_ACCOUNT` to `TF_VAR_github_actions_service_account_email`. Terraform uses that email to grant create-only access to the private benchmark summary and detailed-report buckets used by the benchmark workflow.
 
 The deployment workflow exchanges GitHub's OIDC token for short-lived Google Cloud credentials. No service account JSON key is stored in GitHub.
 
@@ -51,7 +51,7 @@ The public JWKS is versioned in `infra/jwks.json` and published by Terraform fro
 
 The `/process` backend URL is derived directly from the Terraform-managed `process` Cloud Function and does not require a repository secret.
 
-Terraform enables Vertex AI, creates the Firestore vector index and a private benchmark-summary bucket, and assigns a dedicated runtime service account to the process function. The process service account receives Cloud SQL Client access and connects with the official Node.js Connector; direct Cloud SQL connections are rejected by connector enforcement. The existing process-result bucket remains managed only as a 90-day legacy archive and has no runtime writer binding. The GitHub workflow identity receives create-only access to benchmark summaries, which are retained until explicitly deleted. The production model and RAG settings have checked-in non-secret defaults, so no additional GitHub secret is required. Override them only when needed by adding the corresponding `TF_VAR_*` value to the deployment workflow; the available variables are documented in `docs/llm-rag-analysis.md` and `infra/variables.tf`.
+Terraform enables Vertex AI, creates the Firestore vector index and private benchmark buckets, and assigns a dedicated runtime service account to the process function. The process service account receives Cloud SQL Client access and connects with the official Node.js Connector; direct Cloud SQL connections are rejected by connector enforcement. The existing process-result bucket remains managed only as a 90-day legacy archive and has no runtime writer binding. The GitHub workflow identity receives create-only access to long-lived aggregate benchmark summaries and detailed benchmark reports with a configurable 90-day default retention. The production model and RAG settings have checked-in non-secret defaults, so no additional GitHub secret is required. Override them only when needed by adding the corresponding `TF_VAR_*` value to the deployment workflow; the available variables are documented in `docs/llm-rag-analysis.md` and `infra/variables.tf`.
 
 The Workload Identity deployment service account must be able to enable APIs, manage Firestore indexes, create service accounts and IAM bindings, and deploy functions. The manual RAG and benchmark workflows also use this identity and require Vertex AI user and Firestore data access in the target project.
 
