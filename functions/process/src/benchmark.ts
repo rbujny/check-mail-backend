@@ -35,7 +35,18 @@ type Variant = {
   requestOptions?: ModelRequestOptions;
 };
 
-const variants = (): Variant[] => {
+const gemmaVariants = (
+  id: string,
+  model: string,
+  endpoint: string
+): Variant[] => [
+  { id, provider: "openai-compatible", model, rag: false, location: "local", endpoint, requestOptions: { maxOutputTokens: 256, reasoningMode: "disabled" } },
+  { id: `${id}-rag`, provider: "openai-compatible", model, rag: true, location: "local", endpoint, requestOptions: { maxOutputTokens: 256, reasoningMode: "disabled" } },
+  { id: `${id}-thinking`, provider: "openai-compatible", model, rag: false, location: "local", endpoint, requestOptions: { maxOutputTokens: 2048, reasoningBudget: 1536, reasoningMode: "enabled" } },
+  { id: `${id}-thinking-rag`, provider: "openai-compatible", model, rag: true, location: "local", endpoint, requestOptions: { maxOutputTokens: 2048, reasoningBudget: 1536, reasoningMode: "enabled" } },
+];
+
+export const variants = (): Variant[] => {
   const gemmaEndpoint = process.env.GEMMA_ENDPOINT;
   const definitions: Variant[] = [
     { id: "gemini-3.5-flash-lite", provider: "gemini", model: "gemini-3.5-flash-lite", rag: false, location: "global" },
@@ -46,11 +57,23 @@ const variants = (): Variant[] => {
     { id: "claude-sonnet-5-rag", provider: "claude", model: "claude-sonnet-5", rag: true, location: "europe-west1" },
   ];
   if (gemmaEndpoint) {
+    const legacyGemmaModelId = process.env.GEMMA_MODEL_ID;
     definitions.push(
-      { id: "gemma-4-e4b", provider: "openai-compatible", model: process.env.GEMMA_MODEL_ID ?? "gemma-4-e4b-it", rag: false, location: "local", endpoint: gemmaEndpoint, requestOptions: { maxOutputTokens: 256, reasoningMode: "disabled" } },
-      { id: "gemma-4-e4b-rag", provider: "openai-compatible", model: process.env.GEMMA_MODEL_ID ?? "gemma-4-e4b-it", rag: true, location: "local", endpoint: gemmaEndpoint, requestOptions: { maxOutputTokens: 256, reasoningMode: "disabled" } },
-      { id: "gemma-4-e4b-thinking", provider: "openai-compatible", model: process.env.GEMMA_MODEL_ID ?? "gemma-4-e4b-it", rag: false, location: "local", endpoint: gemmaEndpoint, requestOptions: { maxOutputTokens: 2048, reasoningBudget: 1536, reasoningMode: "enabled" } },
-      { id: "gemma-4-e4b-thinking-rag", provider: "openai-compatible", model: process.env.GEMMA_MODEL_ID ?? "gemma-4-e4b-it", rag: true, location: "local", endpoint: gemmaEndpoint, requestOptions: { maxOutputTokens: 2048, reasoningBudget: 1536, reasoningMode: "enabled" } }
+      ...gemmaVariants(
+        "gemma-4-e4b",
+        process.env.GEMMA_E4B_MODEL_ID || legacyGemmaModelId || "gemma-4-e4b-it",
+        gemmaEndpoint
+      ),
+      ...gemmaVariants(
+        "gemma-4-12b-sfp8",
+        process.env.GEMMA_12B_MODEL_ID || legacyGemmaModelId || "gemma-4-12b-it-sfp8",
+        gemmaEndpoint
+      ),
+      ...gemmaVariants(
+        "gemma-4-26b-a4b",
+        process.env.GEMMA_26B_A4B_MODEL_ID || legacyGemmaModelId || "gemma-4-26b-a4b-it",
+        gemmaEndpoint
+      )
     );
   }
   return definitions;
@@ -94,7 +117,9 @@ const percentile = (values: number[], ratio: number): number => {
 
 type EvaluationCache = {
   heuristic: AnalysisResult;
+  heuristicDurationMs: number;
   rag?: RagRetrievalResult;
+  ragDurationMs?: number;
 };
 
 type ConfusionMatrix = {
@@ -125,11 +150,34 @@ type BenchmarkMisclassification = {
   recordId: string;
 };
 
+type EmailProcessingTime = {
+  heuristicMs: number;
+  modelMs?: number;
+  ragMs?: number;
+  record: number;
+  recordId: string;
+  succeeded: boolean;
+  totalMs: number;
+};
+
 const ratio = (numerator: number, denominator: number): number =>
   denominator === 0 ? 0 : numerator / denominator;
 
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
+
+const elapsedMs = (startedAt: number): number =>
+  Number((performance.now() - startedAt).toFixed(3));
+
+export const durationSummary = (values: number[]) => ({
+  average: values.length === 0
+    ? 0
+    : Number((values.reduce((total, value) => total + value, 0) / values.length).toFixed(3)),
+  min: values.length === 0 ? 0 : Math.min(...values),
+  max: values.length === 0 ? 0 : Math.max(...values),
+  p50: percentile(values, 0.5),
+  p95: percentile(values, 0.95),
+});
 
 const metricsFor = (matrix: ConfusionMatrix, total: number) => {
   const decisive = matrix.truePositive + matrix.trueNegative + matrix.falsePositive + matrix.falseNegative;
@@ -185,8 +233,11 @@ const main = async (): Promise<void> => {
   const evaluationCache = new Map<string, EvaluationCache>();
 
   for (const [index, record] of records.entries()) {
+    const heuristicStartedAt = performance.now();
     const heuristic = analyzeEmail(record.request);
+    const heuristicDurationMs = elapsedMs(heuristicStartedAt);
     let rag: RagRetrievalResult | undefined;
+    let ragDurationMs: number | undefined;
     if (heuristic.result !== "PHISHING" && ragRetriever) {
       console.info(JSON.stringify({
         event: "benchmark_rag_retrieval_started",
@@ -194,14 +245,16 @@ const main = async (): Promise<void> => {
         total: records.length,
       }));
       try {
+        const ragStartedAt = performance.now();
         rag = await ragRetriever.retrieve(record.request);
+        ragDurationMs = elapsedMs(ragStartedAt);
       } catch (error) {
         throw new Error(
           `RAG retrieval failed for evaluation record ${index + 1}: ${errorMessage(error)}`
         );
       }
     }
-    evaluationCache.set(record.id, { heuristic, rag });
+    evaluationCache.set(record.id, { heuristic, heuristicDurationMs, rag, ragDurationMs });
   }
 
   const report: Record<string, unknown> = {
@@ -246,15 +299,24 @@ const main = async (): Promise<void> => {
     let consecutiveModelFailures = 0;
     let abortedAfterConsecutiveFailures = false;
     const latencies: number[] = [];
+    const emailProcessingTimes: EmailProcessingTime[] = [];
 
     for (const [index, record] of records.entries()) {
       const cached = evaluationCache.get(record.id);
       if (!cached) {
         throw new Error(`Missing evaluation cache entry for ${record.id}.`);
       }
-      const { heuristic } = cached;
+      const { heuristic, heuristicDurationMs } = cached;
+      const ragDurationMs = variant.rag ? cached.ragDurationMs : undefined;
       if (heuristic.result === "PHISHING") {
         heuristicBypasses += 1;
+        emailProcessingTimes.push({
+          heuristicMs: heuristicDurationMs,
+          record: index + 1,
+          recordId: record.id,
+          succeeded: true,
+          totalMs: heuristicDurationMs,
+        });
         if (record.label === "phishing") {
           matrix.truePositive += 1;
         } else {
@@ -273,7 +335,7 @@ const main = async (): Promise<void> => {
         }
         continue;
       }
-      const startedAt = Date.now();
+      const startedAt = performance.now();
       console.info(JSON.stringify({
         event: "benchmark_model_request_started",
         record: index + 1,
@@ -292,6 +354,8 @@ const main = async (): Promise<void> => {
           variant.requestOptions
         );
       } catch (error) {
+        const modelDurationMs = elapsedMs(startedAt);
+        const totalMs = Number((heuristicDurationMs + (ragDurationMs ?? 0) + modelDurationMs).toFixed(3));
         const message = errorMessage(error);
         const modelError: BenchmarkModelError = {
           error: message,
@@ -304,6 +368,15 @@ const main = async (): Promise<void> => {
         modelFailures += 1;
         consecutiveModelFailures += 1;
         modelErrors.push(modelError);
+        emailProcessingTimes.push({
+          heuristicMs: heuristicDurationMs,
+          modelMs: modelDurationMs,
+          ...(ragDurationMs === undefined ? {} : { ragMs: ragDurationMs }),
+          record: index + 1,
+          recordId: record.id,
+          succeeded: false,
+          totalMs,
+        });
         console.error(JSON.stringify({
           event: "benchmark_model_request_failed",
           error: message,
@@ -327,7 +400,17 @@ const main = async (): Promise<void> => {
       }
       consecutiveModelFailures = 0;
       modelCalls += 1;
-      latencies.push(Date.now() - startedAt);
+      const modelDurationMs = elapsedMs(startedAt);
+      latencies.push(modelDurationMs);
+      emailProcessingTimes.push({
+        heuristicMs: heuristicDurationMs,
+        modelMs: modelDurationMs,
+        ...(ragDurationMs === undefined ? {} : { ragMs: ragDurationMs }),
+        record: index + 1,
+        recordId: record.id,
+        succeeded: true,
+        totalMs: Number((heuristicDurationMs + (ragDurationMs ?? 0) + modelDurationMs).toFixed(3)),
+      });
       inputTokens += response.usage.inputTokens ?? 0;
       outputTokens += response.usage.outputTokens ?? 0;
       reasoningCharacters += response.usage.reasoningCharacters ?? 0;
@@ -385,6 +468,8 @@ const main = async (): Promise<void> => {
       outputTokens,
       reasoningCharacters,
       latencyMs: { p50: percentile(latencies, 0.5), p95: percentile(latencies, 0.95) },
+      emailProcessingTimeMs: durationSummary(emailProcessingTimes.map((timing) => timing.totalMs)),
+      emailProcessingTimes,
     };
   }
 
@@ -432,7 +517,9 @@ const main = async (): Promise<void> => {
   }
 };
 
-main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exitCode = 1;
+  });
+}

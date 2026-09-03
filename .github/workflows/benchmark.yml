@@ -13,12 +13,18 @@ on:
           - gemini-3.5-flash-lite-rag
           - gemini-3.7-flash
           - gemini-3.7-flash-rag
-          - claude-sonnet-5
-          - claude-sonnet-5-rag
           - gemma-4-e4b
           - gemma-4-e4b-rag
           - gemma-4-e4b-thinking
           - gemma-4-e4b-thinking-rag
+          - gemma-4-12b-sfp8
+          - gemma-4-12b-sfp8-rag
+          - gemma-4-12b-sfp8-thinking
+          - gemma-4-12b-sfp8-thinking-rag
+          - gemma-4-26b-a4b
+          - gemma-4-26b-a4b-rag
+          - gemma-4-26b-a4b-thinking
+          - gemma-4-26b-a4b-thinking-rag
       max_records:
         description: Maximum evaluation records for the selected variant
         required: true
@@ -93,6 +99,9 @@ jobs:
           RAG_CORPUS_VERSION: ${{ inputs.corpus_version }}
           GEMMA_ENDPOINT: ${{ vars.GEMMA_ENDPOINT }}
           GEMMA_MODEL_ID: ${{ vars.GEMMA_MODEL_ID }}
+          GEMMA_E4B_MODEL_ID: ${{ vars.GEMMA_E4B_MODEL_ID }}
+          GEMMA_12B_MODEL_ID: ${{ vars.GEMMA_12B_MODEL_ID }}
+          GEMMA_26B_A4B_MODEL_ID: ${{ vars.GEMMA_26B_A4B_MODEL_ID }}
           LLM_TIMEOUT_MS: "60000"
         run: npm run benchmark -- ../../datasets/generated/evaluation.jsonl benchmark-report.json benchmark-summary.json
 

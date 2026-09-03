@@ -58,6 +58,24 @@ Do not run `terraform apply` locally against the shared environment.
 
 ## Local development
 
+Start the local CUDA-accelerated Gemma server used by the self-hosted benchmark runner:
+
+```sh
+./tools/llama/start-gemma-server.sh
+```
+
+The script auto-detects the existing `gemma-4-E4B-it-Q8_0.gguf` Hugging Face cache entry and the CUDA build under `~/tools/llama.cpp`. Override paths or runtime sizing when needed:
+
+```sh
+GEMMA_MODEL_PATH=/path/to/model.gguf \
+LLAMA_SERVER_BIN=/path/to/llama-server \
+LLAMA_PORT=8080 \
+LLAMA_CTX_SIZE=8192 \
+./tools/llama/start-gemma-server.sh
+```
+
+Keep the server running while the repository self-hosted runner executes a Gemma benchmark. The default endpoint and model alias are `http://127.0.0.1:8080` and `gemma-4-e4b-it`. For another llama.cpp-compatible GGUF checkpoint, set `GEMMA_MODEL_PATH` and `GEMMA_MODEL_ALIAS`. An SFP8 checkpoint may instead be served by any engine exposing the same OpenAI-compatible API. In either case, set the matching repository variable: `GEMMA_12B_MODEL_ID` for Gemma 4 12B SFP8 or `GEMMA_26B_A4B_MODEL_ID` for Gemma 4 26B A4B Q4_0. The generic `GEMMA_MODEL_ID` remains a fallback for all Gemma variants.
+
 Local development is intended for Cloud Functions. Run a function from its own directory:
 
 ```sh
@@ -92,7 +110,7 @@ The processing function validates the documented request contract and performs d
 
 Production defaults to `gemini-3.5-flash-lite` with RAG enabled. These non-secret Terraform variables can be overridden through `TF_VAR_*` in the deployment workflow: `llm_provider`, `llm_model_id`, `llm_timeout_ms`, `vertex_ai_location`, `rag_enabled`, `rag_collection`, `rag_corpus_version`, `rag_top_k`, `rag_embedding_model_id`, and `rag_embedding_dimension`. `process_results_retention_days` now applies only to objects written to the legacy process-result bucket before the PostgreSQL migration.
 
-Run the manual `Sync RAG corpus` workflow before deploying a production configuration that enables RAG. The manual `Benchmark LLM pipeline` workflow prepares the same public evaluation data and tests one explicitly selected model with or without RAG on a bounded online sample. Benchmark jobs run on a repository self-hosted Linux x64 runner; this lets Gemma variants call an OpenAI-compatible server through a local `GEMMA_ENDPOINT`, while cloud-model and RAG variants continue to authenticate through Workload Identity. Gemma can be benchmarked both with reasoning disabled and with a bounded thinking budget, independently of RAG. Full reports containing sanitized false-positive/false-negative emails, model outputs, and diagnostics are retained in a private Cloud Storage bucket for 90 days by default and as GitHub artifacts for 14 days. A separate private bucket retains aggregate summaries without per-message data for long-term comparisons. Production messages remain excluded from benchmark persistence and logs.
+Run the manual `Sync RAG corpus` workflow before deploying a production configuration that enables RAG. The manual `Benchmark LLM pipeline` workflow prepares the same public evaluation data and tests one explicitly selected model with or without RAG on a bounded online sample. Benchmark jobs run on a repository self-hosted Linux x64 runner; this lets Gemma variants call an OpenAI-compatible server through a local `GEMMA_ENDPOINT`, while cloud-model and RAG variants continue to authenticate through Workload Identity. Gemma can be benchmarked both with reasoning disabled and with a bounded thinking budget, independently of RAG. Full reports contain sanitized false-positive/false-negative emails, model outputs, diagnostics, and privacy-safe per-email heuristic/RAG/model/total processing times; they are retained in a private Cloud Storage bucket for 90 days by default and as GitHub artifacts for 14 days. A separate private bucket retains aggregate summaries, including per-email processing-time statistics, without per-message data for long-term comparisons. Production messages remain excluded from benchmark persistence and logs.
 
 Clients cannot override the token issuer, audience, or add arbitrary claims. These values are controlled by backend configuration.
 

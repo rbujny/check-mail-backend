@@ -35,6 +35,7 @@ const aggregateFields = [
   "outputTokens",
   "reasoningCharacters",
   "latencyMs",
+  "emailProcessingTimeMs",
 ] as const;
 
 export const createBenchmarkSummary = (
