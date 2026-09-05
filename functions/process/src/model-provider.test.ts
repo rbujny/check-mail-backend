@@ -56,6 +56,36 @@ test("parseAssessment accepts a complete JSON object wrapped in a markdown fence
   );
 });
 
+test("parseAssessment normalizes exact result case variants", () => {
+  for (const [result, expected] of [
+    ["ok", "OK"],
+    ["Warning", "WARNING"],
+    ["phishing", "PHISHING"],
+  ] as const) {
+    assert.equal(
+      parseAssessment(JSON.stringify({
+        result,
+        confidence: 0.9,
+        comment: "Case-normalized assessment.",
+        signals: [],
+      })).result,
+      expected
+    );
+  }
+});
+
+test("parseAssessment rejects result values that differ by more than case", () => {
+  assert.throws(
+    () => parseAssessment(JSON.stringify({
+      result: "safe",
+      confidence: 0.9,
+      comment: "Unsupported result alias.",
+      signals: [],
+    })),
+    /assessment contract/u
+  );
+});
+
 test("OpenAI-compatible request disables reasoning for the regular Gemma variant", () => {
   const body = buildOpenAiCompatibleRequestBody("gemma-test", input, {
     maxOutputTokens: 256,

@@ -75,9 +75,12 @@ export const parseAssessment = (text: string): LlmAssessment => {
   }
 
   const record = value as JsonRecord;
+  const normalizedResult = typeof record.result === "string"
+    ? record.result.toUpperCase()
+    : undefined;
   if (
-    typeof record.result !== "string" ||
-    !resultValues.has(record.result) ||
+    normalizedResult === undefined ||
+    !resultValues.has(normalizedResult) ||
     typeof record.confidence !== "number" ||
     record.confidence < 0 ||
     record.confidence > 1 ||
@@ -93,7 +96,7 @@ export const parseAssessment = (text: string): LlmAssessment => {
   }
 
   return {
-    result: record.result as LlmAssessment["result"],
+    result: normalizedResult as LlmAssessment["result"],
     confidence: record.confidence,
     comment: record.comment,
     signals: record.signals.slice(0, 8),
