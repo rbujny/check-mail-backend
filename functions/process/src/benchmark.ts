@@ -40,10 +40,10 @@ const gemmaVariants = (
   model: string,
   endpoint: string
 ): Variant[] => [
-  { id, provider: "openai-compatible", model, rag: false, location: "local", endpoint, requestOptions: { maxOutputTokens: 256, reasoningMode: "disabled" } },
-  { id: `${id}-rag`, provider: "openai-compatible", model, rag: true, location: "local", endpoint, requestOptions: { maxOutputTokens: 256, reasoningMode: "disabled" } },
-  { id: `${id}-thinking`, provider: "openai-compatible", model, rag: false, location: "local", endpoint, requestOptions: { maxOutputTokens: 2048, reasoningBudget: 1536, reasoningMode: "enabled" } },
-  { id: `${id}-thinking-rag`, provider: "openai-compatible", model, rag: true, location: "local", endpoint, requestOptions: { maxOutputTokens: 2048, reasoningBudget: 1536, reasoningMode: "enabled" } },
+  { id, provider: "openai-compatible", model, rag: false, location: "local", endpoint, requestOptions: { maxOutputTokens: 1024, reasoningMode: "disabled" } },
+  { id: `${id}-rag`, provider: "openai-compatible", model, rag: true, location: "local", endpoint, requestOptions: { maxOutputTokens: 1024, reasoningMode: "disabled" } },
+  { id: `${id}-thinking`, provider: "openai-compatible", model, rag: false, location: "local", endpoint, requestOptions: { maxOutputTokens: 4096, reasoningBudget: 3072, reasoningMode: "enabled" } },
+  { id: `${id}-thinking-rag`, provider: "openai-compatible", model, rag: true, location: "local", endpoint, requestOptions: { maxOutputTokens: 4096, reasoningBudget: 3072, reasoningMode: "enabled" } },
 ];
 
 export const variants = (): Variant[] => {

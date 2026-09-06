@@ -74,7 +74,7 @@ LLAMA_CTX_SIZE=8192 \
 ./tools/llama/start-gemma-server.sh
 ```
 
-Keep the server running while the repository self-hosted runner executes a Gemma benchmark. The default endpoint and model alias are `http://127.0.0.1:8080` and `gemma-4-e4b-it`. For another llama.cpp-compatible GGUF checkpoint, set `GEMMA_MODEL_PATH` and `GEMMA_MODEL_ALIAS`. Set the matching repository variable: `GEMMA_12B_MODEL_ID` for Gemma 4 12B Q8_0 or `GEMMA_26B_A4B_MODEL_ID` for Gemma 4 26B A4B Q4_0. The generic `GEMMA_MODEL_ID` remains a fallback for all Gemma variants.
+Keep the server running while the repository self-hosted runner executes a Gemma benchmark. The default endpoint and model alias are `http://127.0.0.1:8080` and `gemma-4-e4b-it`. For another llama.cpp-compatible GGUF checkpoint, set `GEMMA_MODEL_PATH` and `GEMMA_MODEL_ALIAS`. Set the matching repository variable: `GEMMA_12B_MODEL_ID` for Gemma 4 12B Q8_0 or `GEMMA_26B_A4B_MODEL_ID` for Gemma 4 26B A4B Q4_0. The generic `GEMMA_MODEL_ID` remains a fallback for all Gemma variants. Local benchmark requests allow up to 1,024 completion tokens in regular mode and 4,096 in thinking mode, including a 3,072-token reasoning budget.
 
 Local development is intended for Cloud Functions. Run a function from its own directory:
 
