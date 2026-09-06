@@ -18,7 +18,7 @@ The request may select an allowlisted managed model at runtime through the optio
 | Cost class | Model | Integration |
 | --- | --- | --- |
 | Cheapest | Gemma 4 E4B IT | OpenAI-compatible local or self-hosted endpoint |
-| Local | Gemma 4 12B IT SFP8 | OpenAI-compatible local or self-hosted endpoint |
+| Local | Gemma 4 12B IT Q8_0 | OpenAI-compatible local or self-hosted endpoint |
 | Local | Gemma 4 26B A4B IT Q4_0 | OpenAI-compatible local or self-hosted endpoint |
 | Cheap / production default | Gemini 3.5 Flash-Lite | Vertex AI `generateContent` |
 | Medium | Gemini 3.7 Flash | Vertex AI `generateContent` |
@@ -76,7 +76,7 @@ RAG_CORPUS_VERSION=v1 \
 npm run benchmark -- ../../datasets/generated/evaluation.jsonl benchmark-report.json benchmark-summary.json
 ```
 
-Supported `BENCHMARK_VARIANT` values are the six managed-model variants listed in the workflow plus four modes for each local Gemma family: `gemma-4-e4b`, `gemma-4-12b-sfp8`, and `gemma-4-26b-a4b`, each optionally suffixed with `-rag`, `-thinking`, or `-thinking-rag`. Gemma requires `GEMMA_ENDPOINT`. Model aliases can be configured with `GEMMA_E4B_MODEL_ID`, `GEMMA_12B_MODEL_ID`, or `GEMMA_26B_A4B_MODEL_ID`; the legacy `GEMMA_MODEL_ID` is used as a fallback for all three.
+Supported `BENCHMARK_VARIANT` values are the six managed-model variants listed in the workflow plus four modes for each local Gemma family: `gemma-4-e4b`, `gemma-4-12b-q8_0`, and `gemma-4-26b-a4b`, each optionally suffixed with `-rag`, `-thinking`, or `-thinking-rag`. Gemma requires `GEMMA_ENDPOINT`. Model aliases can be configured with `GEMMA_E4B_MODEL_ID`, `GEMMA_12B_MODEL_ID`, or `GEMMA_26B_A4B_MODEL_ID`; the legacy `GEMMA_MODEL_ID` is used as a fallback for all three.
 
 On the Linux x64 self-hosted runner, start the repository's local server helper before dispatching a Gemma benchmark:
 
@@ -84,9 +84,9 @@ On the Linux x64 self-hosted runner, start the repository's local server helper 
 ./tools/llama/start-gemma-server.sh
 ```
 
-It defaults to one server slot, an 8,192-token context, full CUDA layer offload, Flash Attention, `127.0.0.1:8080`, and the `gemma-4-e4b-it` API alias. Set `GEMMA_MODEL_PATH` and `GEMMA_MODEL_ALIAS` to serve a different llama.cpp-compatible GGUF checkpoint, and set the matching benchmark model-ID variable to the same alias. SFP8 may instead be hosted by another OpenAI-compatible engine and selected through `GEMMA_ENDPOINT`. `LLAMA_SERVER_BIN`, `LLAMA_HOST`, `LLAMA_PORT`, `LLAMA_CTX_SIZE`, `LLAMA_GPU_LAYERS`, `LLAMA_PARALLEL`, and `LLAMA_FLASH_ATTN` override runtime defaults. Additional command-line arguments are forwarded directly to `llama-server`.
+It defaults to one server slot, an 8,192-token context, full CUDA layer offload, Flash Attention, `127.0.0.1:8080`, and the `gemma-4-e4b-it` API alias. Set `GEMMA_MODEL_PATH` and `GEMMA_MODEL_ALIAS` to serve a different llama.cpp-compatible GGUF checkpoint, and set the matching benchmark model-ID variable to the same alias. `LLAMA_SERVER_BIN`, `LLAMA_HOST`, `LLAMA_PORT`, `LLAMA_CTX_SIZE`, `LLAMA_GPU_LAYERS`, `LLAMA_PARALLEL`, and `LLAMA_FLASH_ATTN` override runtime defaults. Additional command-line arguments are forwarded directly to `llama-server`.
 
-For a 16 GB GPU, use Gemma 4 12B SFP8 (approximately 13.4 GB including Google's estimated 20% loading overhead) or Gemma 4 26B A4B Q4_0 (approximately 14.4 GB). Context and KV-cache allocations still depend on the serving engine, context size, and concurrent slots, so reduce `LLAMA_CTX_SIZE` if the 26B A4B server does not leave enough headroom. All four benchmark modes use the same loaded checkpoint; thinking is toggled per request through the Gemma 4 chat-template option.
+For a 16 GB GPU, Gemma 4 12B Q8_0 occupies approximately 14 GB with an 8,192-token context on the current llama.cpp server, while Gemma 4 26B A4B Q4_0 occupies approximately 14.4 GB. Context and KV-cache allocations still depend on the serving engine, context size, and concurrent slots, so reduce `LLAMA_CTX_SIZE` if a server does not leave enough headroom. All four benchmark modes use the same loaded checkpoint; thinking is toggled per request through the Gemma 4 chat-template option.
 
 The online runner is intentionally bounded. A full 10,000-message experiment should use provider batch APIs after the online sample confirms model IDs, permissions, output compatibility, and prompt quality.
 

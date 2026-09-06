@@ -65,8 +65,8 @@ export const variants = (): Variant[] => {
         gemmaEndpoint
       ),
       ...gemmaVariants(
-        "gemma-4-12b-sfp8",
-        process.env.GEMMA_12B_MODEL_ID || legacyGemmaModelId || "gemma-4-12b-it-sfp8",
+        "gemma-4-12b-q8_0",
+        process.env.GEMMA_12B_MODEL_ID || legacyGemmaModelId || "gemma-4-12b-it-q8_0",
         gemmaEndpoint
       ),
       ...gemmaVariants(

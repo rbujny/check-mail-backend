@@ -17,10 +17,10 @@ on:
           - gemma-4-e4b-rag
           - gemma-4-e4b-thinking
           - gemma-4-e4b-thinking-rag
-          - gemma-4-12b-sfp8
-          - gemma-4-12b-sfp8-rag
-          - gemma-4-12b-sfp8-thinking
-          - gemma-4-12b-sfp8-thinking-rag
+          - gemma-4-12b-q8_0
+          - gemma-4-12b-q8_0-rag
+          - gemma-4-12b-q8_0-thinking
+          - gemma-4-12b-q8_0-thinking-rag
           - gemma-4-26b-a4b
           - gemma-4-26b-a4b-rag
           - gemma-4-26b-a4b-thinking

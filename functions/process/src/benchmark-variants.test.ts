@@ -29,17 +29,17 @@ test("adds RAG and thinking modes for every local Gemma family", () => {
       "gemma-4-e4b-rag",
       "gemma-4-e4b-thinking",
       "gemma-4-e4b-thinking-rag",
-      "gemma-4-12b-sfp8",
-      "gemma-4-12b-sfp8-rag",
-      "gemma-4-12b-sfp8-thinking",
-      "gemma-4-12b-sfp8-thinking-rag",
+      "gemma-4-12b-q8_0",
+      "gemma-4-12b-q8_0-rag",
+      "gemma-4-12b-q8_0-thinking",
+      "gemma-4-12b-q8_0-thinking-rag",
       "gemma-4-26b-a4b",
       "gemma-4-26b-a4b-rag",
       "gemma-4-26b-a4b-thinking",
       "gemma-4-26b-a4b-thinking-rag",
     ]
   );
-  assert.equal(localVariants.find((variant) => variant.id === "gemma-4-12b-sfp8")?.requestOptions?.reasoningMode, "disabled");
+  assert.equal(localVariants.find((variant) => variant.id === "gemma-4-12b-q8_0")?.requestOptions?.reasoningMode, "disabled");
   assert.equal(localVariants.find((variant) => variant.id === "gemma-4-26b-a4b-thinking-rag")?.requestOptions?.reasoningMode, "enabled");
 });
 
@@ -52,7 +52,7 @@ test("uses model-family aliases before the legacy Gemma alias", () => {
   const definitions = variants();
 
   assert.equal(definitions.find((variant) => variant.id === "gemma-4-e4b")?.model, "legacy");
-  assert.equal(definitions.find((variant) => variant.id === "gemma-4-12b-sfp8")?.model, "gemma-12b-local");
+  assert.equal(definitions.find((variant) => variant.id === "gemma-4-12b-q8_0")?.model, "gemma-12b-local");
   assert.equal(definitions.find((variant) => variant.id === "gemma-4-26b-a4b")?.model, "gemma-26b-local");
 });
 
