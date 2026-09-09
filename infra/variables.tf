@@ -214,3 +214,20 @@ variable "api_gateway_service_account_id" {
   type        = string
   default     = "checkmail-api-gateway"
 }
+
+variable "dashboard_password" {
+  description = "Administrator password for accessing the checkmail dashboard."
+  type        = string
+  sensitive   = true
+
+  validation {
+    condition     = length(var.dashboard_password) >= 12
+    error_message = "dashboard_password must be at least 12 characters."
+  }
+}
+
+variable "dashboard_username" {
+  description = "Administrator username for accessing the checkmail dashboard."
+  type        = string
+  default     = "admin"
+}

@@ -120,9 +120,20 @@ resource "google_cloudfunctions2_function" "functions" {
         RAG_TOP_K                   = tostring(var.rag_top_k)
         VERTEX_LOCATION             = var.vertex_ai_location
       } : {},
+      each.key == "dashboard" ? {
+        DB_INSTANCE_CONNECTION_NAME = google_sql_database_instance.postgres.connection_name
+        DB_NAME                     = google_sql_database.postgres_app.name
+        DB_PASSWORD                 = var.db_password
+        DB_USER                     = google_sql_user.postgres_app_user.name
+        GOOGLE_CLOUD_PROJECT        = var.project_id
+        DASHBOARD_PASSWORD          = var.dashboard_password
+        DASHBOARD_USERNAME          = var.dashboard_username
+      } : {},
       lookup(var.function_env_overrides, each.key, {}),
     )
-    service_account_email = each.key == "process" ? google_service_account.process.email : null
+    service_account_email = each.key == "process" ? google_service_account.process.email : (
+      each.key == "dashboard" ? google_service_account.dashboard.email : null
+    )
     ingress_settings      = each.value.ingress_settings
     max_instance_count    = each.value.max_instance_count
     timeout_seconds       = each.value.timeout_seconds
@@ -131,5 +142,41 @@ resource "google_cloudfunctions2_function" "functions" {
   depends_on = [
     google_project_service.required,
     google_project_iam_member.process_permissions,
+    google_project_iam_member.dashboard_permissions,
   ]
+}
+
+resource "google_service_account" "dashboard" {
+  project      = var.project_id
+  account_id   = "checkmail-dashboard"
+  display_name = "CheckMail Admin Dashboard Function"
+}
+
+resource "google_project_iam_member" "dashboard_permissions" {
+  for_each = toset([
+    "roles/cloudsql.client",
+    "roles/logging.logWriter",
+  ])
+
+  project = var.project_id
+  role    = each.value
+  member  = "serviceAccount:${google_service_account.dashboard.email}"
+}
+
+resource "google_cloudfunctions2_function_iam_member" "dashboard_public" {
+  count          = contains(keys(local.functions), "dashboard") ? 1 : 0
+  project        = var.project_id
+  location       = var.region
+  cloud_function = google_cloudfunctions2_function.functions["dashboard"].name
+  role           = "roles/cloudfunctions.invoker"
+  member         = "allUsers"
+}
+
+resource "google_cloud_run_service_iam_member" "dashboard_public_run" {
+  count    = contains(keys(local.functions), "dashboard") ? 1 : 0
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.functions["dashboard"].name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
 }

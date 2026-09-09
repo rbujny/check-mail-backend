@@ -24,6 +24,7 @@ Basic GCP infrastructure setup for the backend using Terraform.
 - `functions/basic-http/` - healthcheck HTTP function
 - `functions/auth/` - JWT issuing HTTP function
 - `functions/process/` - heuristic, RAG, and LLM email phishing analysis HTTP function
+- `functions/dashboard/` - admin telemetry dashboard with live Cloud SQL statistics and scan feed
 - `functions/common/email-processing/types.ts` - shared request/response contract types for email processing
 
 ## Deployment
@@ -45,6 +46,7 @@ Configure these GitHub repository secrets before running it:
 - `CHECKMAIL_JWT_PRIVATE_KEY`
 - `CHECKMAIL_JWT_KEY_ID`
 - `CHECKMAIL_JWT_EXPIRES_IN`
+- `CHECKMAIL_DASHBOARD_PASSWORD` (minimum 12 characters)
 
 Start the deployment from GitHub Actions by selecting the `Deploy` workflow and choosing `Run workflow`. It runs Terraform formatting, initialization, validation, plan, and apply, then applies the idempotent PostgreSQL result-schema migration.
 
@@ -121,6 +123,19 @@ Terraform creates a restricted client API key for quota attribution and a dedica
 The public key is stored in `infra/jwks.json`. Terraform publishes it from a dedicated public Cloud Storage bucket in the same GCP project and configures API Gateway to use that URL. The matching private key is supplied only through the `CHECKMAIL_JWT_PRIVATE_KEY` GitHub Secret.
 
 Pull request checks are documented in `docs/pr-checks.md`.
+
+## Admin Telemetry Dashboard
+
+The `dashboard` function exposes a dark-themed security analytics dashboard and JSON telemetry API. It connects to Cloud SQL PostgreSQL using IAM authentication to aggregate real-time scan metrics from the `process_results` table:
+
+- KPI metrics (total scans, phishing rate, warning rate, clean rate, heuristic bypass rate, avg response duration)
+- Estimated Vertex AI token consumption and API cost
+- Time-series charts of email scan activity and verdicts
+- Top triggered heuristic finding codes (e.g. `SPF_FAIL`, `LINK_IP_HOST`, `MESSAGE_CREDENTIAL_LANGUAGE`)
+- Live recent scans feed with modal inspector for granular heuristic & LLM decision breakdowns
+- Fallback preview mock mode when running locally outside GCP
+
+Access is protected by HTTP Basic Authentication (configured through `DASHBOARD_USERNAME` and `DASHBOARD_PASSWORD`, defaulting to `admin` / `admin123`). Pass the password via standard Basic Auth popup or `?key=<password>` query param / `x-dashboard-key` header.
 
 ## Codex team setup
 
