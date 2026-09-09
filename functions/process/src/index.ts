@@ -24,62 +24,66 @@ app.use((req: Request, res: Response, next: NextFunction): void => {
   next();
 });
 
-export const createProcessPostHandler = (
-  dependencies?: ProcessDependencies,
-  resultStore: ResultStore | undefined = createResultStoreFromEnv()
-) => (
-  req: Request<Record<string, never>, ProcessEmailResponse | ProcessEmailErrorResponse, unknown>,
-  res: Response<ProcessEmailResponse | ProcessEmailErrorResponse>
-): Promise<void> => {
-  const startedAt = Date.now();
-  return processRequest(req.body, dependencies).then(async (result) => {
-    if (result.status !== 200) {
-      res.status(result.status).json(result.body);
-      return;
-    }
-
-    const durationMs = Date.now() - startedAt;
-    let storedResult;
-    try {
-      if (!resultStore) {
-        throw new Error("PostgreSQL result persistence is not configured.");
+export const createProcessPostHandler =
+  (
+    dependencies?: ProcessDependencies,
+    resultStore: ResultStore | undefined = createResultStoreFromEnv()
+  ) =>
+  (
+    req: Request<Record<string, never>, ProcessEmailResponse | ProcessEmailErrorResponse, unknown>,
+    res: Response<ProcessEmailResponse | ProcessEmailErrorResponse>
+  ): Promise<void> => {
+    const startedAt = Date.now();
+    return processRequest(req.body, dependencies).then(async (result) => {
+      if (result.status !== 200) {
+        res.status(result.status).json(result.body);
+        return;
       }
-      storedResult = await resultStore.save(result.pipeline, durationMs);
-    } catch (error) {
-      console.error(JSON.stringify({
-        event: "email_analysis_persistence_failed",
-        errorType: error instanceof Error ? error.name : "unknown",
-      }));
-      res.status(503).json({ error: "Analysis service temporarily unavailable." });
-      return;
-    }
 
-    console.info(
-      JSON.stringify({
-        event: "email_analysis_completed",
-        route: result.pipeline.route,
-        heuristicResult: result.pipeline.analysis.result,
-        heuristicScore: result.pipeline.analysis.score,
-        findingCodes: result.pipeline.analysis.findings.map((finding) => finding.code),
-        result: result.body.result,
-        modelSelection: result.pipeline.modelSelection,
-        provider: result.pipeline.llm?.provider,
-        model: result.pipeline.llm?.model,
-        confidence: result.pipeline.llm?.assessment.confidence,
-        inputTokens: result.pipeline.llm?.usage.inputTokens,
-        outputTokens: result.pipeline.llm?.usage.outputTokens,
-        ragCorpusVersion: result.pipeline.rag?.corpusVersion,
-        ragHitCount: result.pipeline.rag?.documents.length,
-        durationMs,
-        resultId: storedResult?.resultId,
-        storage: storedResult?.storage,
-        storageTable: storedResult?.table,
-      })
-    );
+      const durationMs = Date.now() - startedAt;
+      let storedResult;
+      try {
+        if (!resultStore) {
+          throw new Error("PostgreSQL result persistence is not configured.");
+        }
+        storedResult = await resultStore.save(result.pipeline, durationMs);
+      } catch (error) {
+        console.error(
+          JSON.stringify({
+            event: "email_analysis_persistence_failed",
+            errorType: error instanceof Error ? error.name : "unknown",
+          })
+        );
+        res.status(503).json({ error: "Analysis service temporarily unavailable." });
+        return;
+      }
 
-    res.status(result.status).json(result.body);
-  });
-};
+      console.info(
+        JSON.stringify({
+          event: "email_analysis_completed",
+          route: result.pipeline.route,
+          heuristicResult: result.pipeline.analysis.result,
+          heuristicScore: result.pipeline.analysis.score,
+          findingCodes: result.pipeline.analysis.findings.map((finding) => finding.code),
+          result: result.body.result,
+          modelSelection: result.pipeline.modelSelection,
+          provider: result.pipeline.llm?.provider,
+          model: result.pipeline.llm?.model,
+          confidence: result.pipeline.llm?.assessment.confidence,
+          inputTokens: result.pipeline.llm?.usage.inputTokens,
+          outputTokens: result.pipeline.llm?.usage.outputTokens,
+          ragCorpusVersion: result.pipeline.rag?.corpusVersion,
+          ragHitCount: result.pipeline.rag?.documents.length,
+          durationMs,
+          resultId: storedResult?.resultId,
+          storage: storedResult?.storage,
+          storageTable: storedResult?.table,
+        })
+      );
+
+      res.status(result.status).json(result.body);
+    });
+  };
 
 export const processPostHandler = createProcessPostHandler();
 

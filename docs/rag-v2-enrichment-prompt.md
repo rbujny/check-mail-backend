@@ -57,11 +57,7 @@ Files are located in `/datasets/generated/rag-v2-enrichment-input`. Store genera
 ```json
 {
   "id": "unchanged SHA-256 identifier",
-  "signals": [
-    "credential request",
-    "urgent account warning",
-    "link present"
-  ],
+  "signals": ["credential request", "urgent account warning", "link present"],
   "explanation": "The message pressures the recipient to act on an account warning and includes a redacted link. The destination is unavailable, so no claim is made about the linked domain."
 }
 ```

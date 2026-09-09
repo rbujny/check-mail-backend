@@ -19,14 +19,11 @@ const baseConfig: ProcessConfig = {
 };
 
 test("maps runtime model IDs to controlled provider configurations", () => {
-  assert.deepEqual(
-    configForRuntimeModel(baseConfig, "gemini-3.7-flash"),
-    {
-      ...baseConfig,
-      llmEndpoint: undefined,
-      llmModelId: "gemini-3.7-flash",
-      llmProvider: "gemini",
-      vertexLocation: "global",
-    }
-  );
+  assert.deepEqual(configForRuntimeModel(baseConfig, "gemini-3.7-flash"), {
+    ...baseConfig,
+    llmEndpoint: undefined,
+    llmModelId: "gemini-3.7-flash",
+    llmProvider: "gemini",
+    vertexLocation: "global",
+  });
 });

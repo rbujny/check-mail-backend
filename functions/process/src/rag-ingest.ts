@@ -32,13 +32,16 @@ const isCorpusRecord = (value: unknown): value is CorpusRecord => {
 
 const loadRecords = async (path: string): Promise<CorpusRecord[]> => {
   const content = await readFile(path, "utf8");
-  return content.split(/\r?\n/u).filter(Boolean).map((line, index) => {
-    const value: unknown = JSON.parse(line);
-    if (!isCorpusRecord(value)) {
-      throw new Error(`Invalid corpus record at ${basename(path)}:${index + 1}`);
-    }
-    return value;
-  });
+  return content
+    .split(/\r?\n/u)
+    .filter(Boolean)
+    .map((line, index) => {
+      const value: unknown = JSON.parse(line);
+      if (!isCorpusRecord(value)) {
+        throw new Error(`Invalid corpus record at ${basename(path)}:${index + 1}`);
+      }
+      return value;
+    });
 };
 
 const main = async (): Promise<void> => {
@@ -56,17 +59,26 @@ const main = async (): Promise<void> => {
 
   for (const [index, record] of records.entries()) {
     const embedding = await embeddings.embed(record.text, "RETRIEVAL_DOCUMENT");
-    await firestore.collection(config.ragCollection).doc(record.id).set({
-      corpusVersion: config.ragCorpusVersion,
-      label: record.label,
-      text: record.text,
-      source: record.source,
-      sourceRecordId: record.sourceRecordId,
-      embedding: FieldValue.vector(embedding),
-      updatedAt: FieldValue.serverTimestamp(),
-    });
+    await firestore
+      .collection(config.ragCollection)
+      .doc(record.id)
+      .set({
+        corpusVersion: config.ragCorpusVersion,
+        label: record.label,
+        text: record.text,
+        source: record.source,
+        sourceRecordId: record.sourceRecordId,
+        embedding: FieldValue.vector(embedding),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
     if ((index + 1) % 50 === 0 || index + 1 === records.length) {
-      console.info(JSON.stringify({ event: "rag_ingest_progress", completed: index + 1, total: records.length }));
+      console.info(
+        JSON.stringify({
+          event: "rag_ingest_progress",
+          completed: index + 1,
+          total: records.length,
+        })
+      );
     }
   }
 };

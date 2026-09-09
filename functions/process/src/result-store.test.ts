@@ -27,12 +27,14 @@ const pipeline: AnalysisPipelineResult = {
   modelSelection: "gemini-3.7-flash",
   rag: {
     corpusVersion: "v1",
-    documents: [{
-      id: "doc-1",
-      label: "phishing",
-      source: "test",
-      text: "retrieved text must not be persisted",
-    }],
+    documents: [
+      {
+        id: "doc-1",
+        label: "phishing",
+        source: "test",
+        text: "retrieved text must not be persisted",
+      },
+    ],
   },
   route: "llm",
 };

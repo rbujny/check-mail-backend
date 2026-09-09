@@ -67,17 +67,20 @@ export const processRequest = async (
   }
 
   try {
-    const modelProvider = request.model && dependencies.modelProviderForRuntimeModel
-      ? dependencies.modelProviderForRuntimeModel(request.model)
-      : dependencies.modelProvider;
+    const modelProvider =
+      request.model && dependencies.modelProviderForRuntimeModel
+        ? dependencies.modelProviderForRuntimeModel(request.model)
+        : dependencies.modelProvider;
     const rag = dependencies.ragRetriever
       ? await withOneRetry(() => dependencies.ragRetriever!.retrieve(request))
       : undefined;
-    const llm = await withOneRetry(() => modelProvider.assess({
-      request,
-      heuristic: analysis,
-      ragDocuments: rag?.documents ?? [],
-    }));
+    const llm = await withOneRetry(() =>
+      modelProvider.assess({
+        request,
+        heuristic: analysis,
+        ragDocuments: rag?.documents ?? [],
+      })
+    );
     const response = {
       result: llm.assessment.result,
       comment: llm.assessment.comment,
@@ -96,10 +99,12 @@ export const processRequest = async (
       },
     };
   } catch (error) {
-    console.error(JSON.stringify({
-      event: "email_analysis_unavailable",
-      errorType: error instanceof Error ? error.name : "unknown",
-    }));
+    console.error(
+      JSON.stringify({
+        event: "email_analysis_unavailable",
+        errorType: error instanceof Error ? error.name : "unknown",
+      })
+    );
     return {
       status: 503,
       body: { error: "Analysis service temporarily unavailable." },

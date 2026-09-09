@@ -43,16 +43,21 @@ export const createBenchmarkSummary = (
   environment: NodeJS.ProcessEnv = process.env
 ): BenchmarkSummary => {
   const reportVariants = report.variants as Record<string, Record<string, unknown>>;
-  const variants = Object.fromEntries(Object.entries(reportVariants).map(([id, variant]) => {
-    const aggregate = Object.fromEntries(aggregateFields.map((field) => [field, variant[field]]));
-    return [id, {
-      ...aggregate,
-      misclassificationCount: Array.isArray(variant.misclassifications)
-        ? variant.misclassifications.length
-        : 0,
-      modelErrorCount: Array.isArray(variant.modelErrors) ? variant.modelErrors.length : 0,
-    }];
-  }));
+  const variants = Object.fromEntries(
+    Object.entries(reportVariants).map(([id, variant]) => {
+      const aggregate = Object.fromEntries(aggregateFields.map((field) => [field, variant[field]]));
+      return [
+        id,
+        {
+          ...aggregate,
+          misclassificationCount: Array.isArray(variant.misclassifications)
+            ? variant.misclassifications.length
+            : 0,
+          modelErrorCount: Array.isArray(variant.modelErrors) ? variant.modelErrors.length : 0,
+        },
+      ];
+    })
+  );
   const githubRun = {
     attempt: environment.GITHUB_RUN_ATTEMPT,
     ref: environment.GITHUB_REF,

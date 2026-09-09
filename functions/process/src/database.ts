@@ -47,7 +47,9 @@ export const databaseConfigFromEnv = (): DatabaseConfig | undefined => {
     : undefined;
 };
 
-export const createDatabasePool = async (config: DatabaseConfig): Promise<{
+export const createDatabasePool = async (
+  config: DatabaseConfig
+): Promise<{
   connector: Connector;
   pool: Pool;
 }> => {
@@ -69,10 +71,12 @@ export const createDatabasePool = async (config: DatabaseConfig): Promise<{
       statement_timeout: 10000,
     });
     pool.on("error", (error: Error) => {
-      console.error(JSON.stringify({
-        event: "postgres_pool_error",
-        errorType: error.name,
-      }));
+      console.error(
+        JSON.stringify({
+          event: "postgres_pool_error",
+          errorType: error.name,
+        })
+      );
     });
     return { connector, pool };
   } catch (error) {
@@ -81,9 +85,7 @@ export const createDatabasePool = async (config: DatabaseConfig): Promise<{
   }
 };
 
-export const initializeProcessResultsSchema = async (
-  client: DatabaseClient
-): Promise<void> => {
+export const initializeProcessResultsSchema = async (client: DatabaseClient): Promise<void> => {
   for (const statement of processResultsSchemaStatements) {
     await client.query(statement);
   }

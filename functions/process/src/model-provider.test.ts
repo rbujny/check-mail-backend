@@ -1,11 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  buildOpenAiCompatibleRequestBody,
-  buildPrompt,
-  parseAssessment,
-} from "./model-provider";
+import { buildOpenAiCompatibleRequestBody, buildPrompt, parseAssessment } from "./model-provider";
 import type { ModelInput } from "./model-provider";
 
 const input: ModelInput = {
@@ -24,12 +20,14 @@ const input: ModelInput = {
     links: ["https://example.org/private?token=secret-123456"],
   },
   heuristic: { result: "OK", score: 0, comment: "ok", findings: [] },
-  ragDocuments: [{
-    id: "safe-1",
-    label: "safe",
-    source: "test",
-    text: "Example for person@example.com with id 987654",
-  }],
+  ragDocuments: [
+    {
+      id: "safe-1",
+      label: "safe",
+      source: "test",
+      text: "Example for person@example.com with id 987654",
+    },
+  ],
 };
 
 test("buildPrompt minimizes addresses, URL paths, long identifiers, and received headers", () => {
@@ -63,12 +61,14 @@ test("parseAssessment normalizes exact result case variants", () => {
     ["phishing", "PHISHING"],
   ] as const) {
     assert.equal(
-      parseAssessment(JSON.stringify({
-        result,
-        confidence: 0.9,
-        comment: "Case-normalized assessment.",
-        signals: [],
-      })).result,
+      parseAssessment(
+        JSON.stringify({
+          result,
+          confidence: 0.9,
+          comment: "Case-normalized assessment.",
+          signals: [],
+        })
+      ).result,
       expected
     );
   }
@@ -76,12 +76,15 @@ test("parseAssessment normalizes exact result case variants", () => {
 
 test("parseAssessment rejects result values that differ by more than case", () => {
   assert.throws(
-    () => parseAssessment(JSON.stringify({
-      result: "safe",
-      confidence: 0.9,
-      comment: "Unsupported result alias.",
-      signals: [],
-    })),
+    () =>
+      parseAssessment(
+        JSON.stringify({
+          result: "safe",
+          confidence: 0.9,
+          comment: "Unsupported result alias.",
+          signals: [],
+        })
+      ),
     /assessment contract/u
   );
 });

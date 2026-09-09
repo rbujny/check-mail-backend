@@ -22,9 +22,10 @@ export class VertexEmbeddingClient {
   constructor(private readonly config: ProcessConfig) {}
 
   async embed(text: string, taskType: "RETRIEVAL_DOCUMENT" | "RETRIEVAL_QUERY"): Promise<number[]> {
-    const endpoint = this.config.vertexLocation === "global"
-      ? "https://aiplatform.googleapis.com"
-      : `https://${this.config.vertexLocation}-aiplatform.googleapis.com`;
+    const endpoint =
+      this.config.vertexLocation === "global"
+        ? "https://aiplatform.googleapis.com"
+        : `https://${this.config.vertexLocation}-aiplatform.googleapis.com`;
     const url = `${endpoint}/v1/projects/${this.config.projectId}/locations/${this.config.vertexLocation}/publishers/google/models/${this.config.embeddingModelId}:predict`;
     const client = await this.auth.getClient();
     const response = await client.request<EmbeddingResponse>({
@@ -47,13 +48,14 @@ export class VertexEmbeddingClient {
   }
 }
 
-const queryText = (request: ProcessEmailRequest): string => [
-  request.headers.subject ?? "",
-  request.body,
-  `SPF=${request.securityVerdicts.spf ?? "unknown"}`,
-  `DKIM=${request.securityVerdicts.dkim ?? "unknown"}`,
-  `DMARC=${request.securityVerdicts.dmarc ?? "unknown"}`,
-].join("\n");
+const queryText = (request: ProcessEmailRequest): string =>
+  [
+    request.headers.subject ?? "",
+    request.body,
+    `SPF=${request.securityVerdicts.spf ?? "unknown"}`,
+    `DKIM=${request.securityVerdicts.dkim ?? "unknown"}`,
+    `DMARC=${request.securityVerdicts.dmarc ?? "unknown"}`,
+  ].join("\n");
 
 export class FirestoreRagRetriever implements RagRetriever {
   private readonly firestore: Firestore;

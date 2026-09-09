@@ -134,9 +134,9 @@ resource "google_cloudfunctions2_function" "functions" {
     service_account_email = each.key == "process" ? google_service_account.process.email : (
       each.key == "dashboard" ? google_service_account.dashboard.email : null
     )
-    ingress_settings      = each.value.ingress_settings
-    max_instance_count    = each.value.max_instance_count
-    timeout_seconds       = each.value.timeout_seconds
+    ingress_settings   = each.value.ingress_settings
+    max_instance_count = each.value.max_instance_count
+    timeout_seconds    = each.value.timeout_seconds
   }
 
   depends_on = [

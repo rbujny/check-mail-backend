@@ -97,18 +97,21 @@ test("POST handler persists a successful processing result before responding", a
       return { resultId: "id-1", storage: "postgresql", table: "process_results" };
     },
   };
-  const handler = createProcessPostHandler({
-    modelProvider: {
-      async assess() {
-        return {
-          assessment: { result: "OK", confidence: 1, comment: "Safe.", signals: [] },
-          model: "test-model",
-          provider: "test",
-          usage: {},
-        };
+  const handler = createProcessPostHandler(
+    {
+      modelProvider: {
+        async assess() {
+          return {
+            assessment: { result: "OK", confidence: 1, comment: "Safe.", signals: [] },
+            model: "test-model",
+            provider: "test",
+            usage: {},
+          };
+        },
       },
     },
-  }, resultStore);
+    resultStore
+  );
 
   await handler(request, captured.response);
 
@@ -128,18 +131,21 @@ test("POST handler returns 503 when result persistence fails", async () => {
       throw new Error("Storage unavailable");
     },
   };
-  const handler = createProcessPostHandler({
-    modelProvider: {
-      async assess() {
-        return {
-          assessment: { result: "OK", confidence: 1, comment: "Safe.", signals: [] },
-          model: "test-model",
-          provider: "test",
-          usage: {},
-        };
+  const handler = createProcessPostHandler(
+    {
+      modelProvider: {
+        async assess() {
+          return {
+            assessment: { result: "OK", confidence: 1, comment: "Safe.", signals: [] },
+            model: "test-model",
+            provider: "test",
+            usage: {},
+          };
+        },
       },
     },
-  }, resultStore);
+    resultStore
+  );
 
   await handler(request, captured.response);
 
