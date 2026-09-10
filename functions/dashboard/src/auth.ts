@@ -27,7 +27,44 @@ const setSessionCookie = (res: Response, sessionToken: string): void => {
   res.setHeader("Set-Cookie", cookieVal);
 };
 
+type RateLimitRecord = {
+  count: number;
+  resetTime: number;
+};
+
+const ipRateLimits = new Map<string, RateLimitRecord>();
+
+export const checkRateLimit = (ip: string, limit = 60, windowMs = 60000): boolean => {
+  const now = Date.now();
+  const record = ipRateLimits.get(ip);
+  if (!record || now > record.resetTime) {
+    ipRateLimits.set(ip, { count: 1, resetTime: now + windowMs });
+    return true;
+  }
+  record.count += 1;
+  return record.count <= limit;
+};
+
+export const clearRateLimits = (): void => {
+  ipRateLimits.clear();
+};
+
 export const dashboardAuthMiddleware = (req: Request, res: Response, next: NextFunction): void => {
+  const clientIp =
+    (typeof req.header("x-forwarded-for") === "string"
+      ? req.header("x-forwarded-for")?.split(",")[0].trim()
+      : undefined) ||
+    req.ip ||
+    "unknown";
+
+  if (!checkRateLimit(clientIp, 60, 60000)) {
+    res.setHeader("Retry-After", "60");
+    res.status(429).json({
+      error: "Too many requests. Rate limit exceeded. Please wait 60 seconds.",
+    });
+    return;
+  }
+
   const { username: expectedUser, password: expectedPass } = getDashboardCredentials();
   const expectedSessionToken = computeSessionToken(expectedUser, expectedPass);
 

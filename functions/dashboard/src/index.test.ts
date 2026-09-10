@@ -90,3 +90,15 @@ test("renderDashboardHtml returns technical dashboard HTML with React and Tailwi
   assert.ok(html.includes("tailwindcss"));
   assert.ok(html.includes("JetBrains Mono"));
 });
+
+test("rate limiter clamps excessive requests from single IP", async () => {
+  const { checkRateLimit, clearRateLimits } = await import("./auth");
+  clearRateLimits();
+  const testIp = "192.168.1.100";
+  for (let i = 0; i < 5; i++) {
+    assert.equal(checkRateLimit(testIp, 5, 60000), true);
+  }
+  // 6th request should fail
+  assert.equal(checkRateLimit(testIp, 5, 60000), false);
+  clearRateLimits();
+});
