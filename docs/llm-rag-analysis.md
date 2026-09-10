@@ -15,14 +15,14 @@ The request may select an allowlisted managed model at runtime through the optio
 
 ## Model matrix
 
-| Cost class | Model | Integration |
-| --- | --- | --- |
-| Cheapest | Gemma 4 E4B IT | OpenAI-compatible local or self-hosted endpoint |
-| Local | Gemma 4 12B IT Q8_0 | OpenAI-compatible local or self-hosted endpoint |
-| Local | Gemma 4 26B A4B IT Q4_0 | OpenAI-compatible local or self-hosted endpoint |
-| Cheap / production default | Gemini 3.5 Flash-Lite | Vertex AI `generateContent` |
-| Medium | Gemini 3.7 Flash | Vertex AI `generateContent` |
-| Expensive reference | Claude Sonnet 5 | Vertex AI partner model `rawPredict` |
+| Cost class                 | Model                   | Integration                                     |
+| -------------------------- | ----------------------- | ----------------------------------------------- |
+| Cheapest                   | Gemma 4 E4B IT          | OpenAI-compatible local or self-hosted endpoint |
+| Local                      | Gemma 4 12B IT Q8_0     | OpenAI-compatible local or self-hosted endpoint |
+| Local                      | Gemma 4 26B A4B IT Q4_0 | OpenAI-compatible local or self-hosted endpoint |
+| Cheap / production default | Gemini 3.5 Flash-Lite   | Vertex AI `generateContent`                     |
+| Medium                     | Gemini 3.7 Flash        | Vertex AI `generateContent`                     |
+| Expensive reference        | Claude Sonnet 5         | Vertex AI partner model `rawPredict`            |
 
 Every benchmark model has no-RAG and RAG variants. Gemma variants are included only when `GEMMA_ENDPOINT` is configured because the open model needs separately provisioned compute.
 
@@ -94,22 +94,22 @@ The online runner is intentionally bounded. A full 10,000-message experiment sho
 
 Pricing was checked on 2026-08-23. Current global online list prices per one million text tokens are:
 
-| Model | Input | Output |
-| --- | ---: | ---: |
-| Gemini 3.5 Flash-Lite | $0.30 | $2.50 |
-| Gemini 3.7 Flash, introductory through 2026-12-31 | $0.75 | $3.75 |
-| Claude Sonnet 5 in `europe-west1` | $2.20 | $11.00 |
-| Gemma 4 E4B / 12B / 26B A4B | Compute-based | Compute-based |
+| Model                                             |         Input |        Output |
+| ------------------------------------------------- | ------------: | ------------: |
+| Gemini 3.5 Flash-Lite                             |         $0.30 |         $2.50 |
+| Gemini 3.7 Flash, introductory through 2026-12-31 |         $0.75 |         $3.75 |
+| Claude Sonnet 5 in `europe-west1`                 |         $2.20 |        $11.00 |
+| Gemma 4 E4B / 12B / 26B A4B                       | Compute-based | Compute-based |
 
 Google lists Gemini Embedding online requests at $0.00015 per 1,000 inputs. Firestore additionally bills document/vector-index reads, writes, and storage, but the initial corpus and experiment normally fit inside or close to the default database's free daily operation quotas.
 
 Using a deliberately conservative assumption of 10,000 model-eligible messages, 1,000 input and 100 output tokens without RAG, and 1,500 input and 100 output tokens with RAG, both variants cost approximately:
 
 | Model pair: no-RAG + RAG | Estimated online cost |
-| --- | ---: |
-| Gemini 3.5 Flash-Lite | $12.50 |
-| Gemini 3.7 Flash | $26.25 |
-| Claude Sonnet 5 | $77.00 |
+| ------------------------ | --------------------: |
+| Gemini 3.5 Flash-Lite    |                $12.50 |
+| Gemini 3.7 Flash         |                $26.25 |
+| Claude Sonnet 5          |                $77.00 |
 
 The managed-model total is about $115.75 in this worst-case assumption, or about $5.79 for the default 500-message online sample. If heuristics bypass half the evaluation set, model cost is approximately halved. Embedding 2,000 corpus records plus 10,000 queries is about $0.002 at the listed per-request price, before Firestore operations.
 

@@ -64,21 +64,25 @@ export const buildStoredProcessResult = (
     score: pipeline.analysis.score,
     findings: pipeline.analysis.findings,
   },
-  ...(pipeline.llm ? {
-    llm: {
-      assessment: pipeline.llm.assessment,
-      model: pipeline.llm.model,
-      provider: pipeline.llm.provider,
-      usage: pipeline.llm.usage,
-    },
-  } : {}),
-  ...(pipeline.rag ? {
-    rag: {
-      corpusVersion: pipeline.rag.corpusVersion,
-      documentIds: pipeline.rag.documents.map((document) => document.id),
-      hitCount: pipeline.rag.documents.length,
-    },
-  } : {}),
+  ...(pipeline.llm
+    ? {
+        llm: {
+          assessment: pipeline.llm.assessment,
+          model: pipeline.llm.model,
+          provider: pipeline.llm.provider,
+          usage: pipeline.llm.usage,
+        },
+      }
+    : {}),
+  ...(pipeline.rag
+    ? {
+        rag: {
+          corpusVersion: pipeline.rag.corpusVersion,
+          documentIds: pipeline.rag.documents.map((document) => document.id),
+          hitCount: pipeline.rag.documents.length,
+        },
+      }
+    : {}),
 });
 
 export class PostgresResultStore implements ResultStore {
@@ -100,10 +104,7 @@ export class PostgresResultStore implements ResultStore {
     await this.initialized;
   }
 
-  async save(
-    pipeline: AnalysisPipelineResult,
-    durationMs: number
-  ): Promise<StoredResultReference> {
+  async save(pipeline: AnalysisPipelineResult, durationMs: number): Promise<StoredResultReference> {
     const record = buildStoredProcessResult(pipeline, durationMs);
     const client = await this.getClient();
     await this.ensureInitialized(client);

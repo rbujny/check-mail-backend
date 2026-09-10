@@ -31,6 +31,7 @@ jobs:
       TF_VAR_jwt_private_key: ${{ secrets.CHECKMAIL_JWT_PRIVATE_KEY }}
       TF_VAR_jwt_key_id: ${{ secrets.CHECKMAIL_JWT_KEY_ID }}
       TF_VAR_jwt_expires_in: ${{ secrets.CHECKMAIL_JWT_EXPIRES_IN }}
+      TF_VAR_dashboard_password: ${{ secrets.CHECKMAIL_DASHBOARD_PASSWORD }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -50,6 +51,7 @@ jobs:
             TF_VAR_jwt_private_key
             TF_VAR_jwt_key_id
             TF_VAR_jwt_expires_in
+            TF_VAR_dashboard_password
           )
 
           for name in "${required[@]}"; do

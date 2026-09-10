@@ -3,10 +3,7 @@ export const scanResultValues = ["OK", "WARNING", "PHISHING"] as const;
 export const spfVerdictValues = ["pass", "fail", "softfail", "none"] as const;
 export const dkimVerdictValues = ["pass", "fail", "none"] as const;
 export const dmarcVerdictValues = ["pass", "fail", "none"] as const;
-export const runtimeModelValues = [
-  "gemini-3.5-flash-lite",
-  "gemini-3.7-flash",
-] as const;
+export const runtimeModelValues = ["gemini-3.5-flash-lite", "gemini-3.7-flash"] as const;
 
 export type ScanResult = (typeof scanResultValues)[number];
 export type SpfVerdict = (typeof spfVerdictValues)[number];

@@ -57,3 +57,8 @@ output "jwt_jwks_uri" {
   description = "Public Cloud Storage URL used by API Gateway to verify JWT signatures."
   value       = local.jwt_jwks_uri
 }
+
+output "dashboard_url" {
+  description = "Public HTTPS URL for the admin telemetry dashboard."
+  value       = contains(keys(google_cloudfunctions2_function.functions), "dashboard") ? google_cloudfunctions2_function.functions["dashboard"].service_config[0].uri : null
+}

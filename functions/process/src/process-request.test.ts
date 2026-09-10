@@ -113,14 +113,17 @@ test("selects an allowlisted runtime model through the provider resolver", async
 
 test("returns 503 after two failed model attempts", async () => {
   let calls = 0;
-  const response = await processRequest(createValidRequest(), dependencies({
-    modelProvider: {
-      async assess() {
-        calls += 1;
-        throw new Error("Vertex unavailable");
+  const response = await processRequest(
+    createValidRequest(),
+    dependencies({
+      modelProvider: {
+        async assess() {
+          calls += 1;
+          throw new Error("Vertex unavailable");
+        },
       },
-    },
-  }));
+    })
+  );
 
   assert.equal(calls, 2);
   assert.equal(response.status, 503);
@@ -138,7 +141,8 @@ test("returns 400 for a request missing a required field", async () => {
 
 test("returns 400 for unsupported fields and oversized input", async () => {
   assert.equal(
-    (await processRequest({ ...createValidRequest(), rawEmail: "not accepted" }, dependencies())).status,
+    (await processRequest({ ...createValidRequest(), rawEmail: "not accepted" }, dependencies()))
+      .status,
     400
   );
   assert.equal(
@@ -146,7 +150,8 @@ test("returns 400 for unsupported fields and oversized input", async () => {
     400
   );
   assert.equal(
-    (await processRequest({ ...createValidRequest(), model: "arbitrary-model" }, dependencies())).status,
+    (await processRequest({ ...createValidRequest(), model: "arbitrary-model" }, dependencies()))
+      .status,
     400
   );
 });

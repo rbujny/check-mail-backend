@@ -1,0 +1,9 @@
+{
+  "name": "checkmail-dashboard",
+  "entry_point": "dashboardHttp",
+  "runtime": "nodejs20",
+  "available_memory": "256M",
+  "ingress_settings": "ALLOW_ALL",
+  "max_instance_count": 2,
+  "timeout_seconds": 60
+}

@@ -7,9 +7,7 @@ import {
 const main = async (): Promise<void> => {
   const config = databaseConfigFromEnv();
   if (!config) {
-    throw new Error(
-      "DB_INSTANCE_CONNECTION_NAME, DB_NAME, DB_USER, and DB_PASSWORD are required."
-    );
+    throw new Error("DB_INSTANCE_CONNECTION_NAME, DB_NAME, DB_USER, and DB_PASSWORD are required.");
   }
 
   for (let attempt = 1; attempt <= 3; attempt += 1) {

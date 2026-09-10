@@ -35,26 +35,90 @@ type Variant = {
   requestOptions?: ModelRequestOptions;
 };
 
-const gemmaVariants = (
-  id: string,
-  model: string,
-  endpoint: string
-): Variant[] => [
-  { id, provider: "openai-compatible", model, rag: false, location: "local", endpoint, requestOptions: { maxOutputTokens: 1024, reasoningMode: "disabled" } },
-  { id: `${id}-rag`, provider: "openai-compatible", model, rag: true, location: "local", endpoint, requestOptions: { maxOutputTokens: 1024, reasoningMode: "disabled" } },
-  { id: `${id}-thinking`, provider: "openai-compatible", model, rag: false, location: "local", endpoint, requestOptions: { maxOutputTokens: 4096, reasoningBudget: 3072, reasoningMode: "enabled" } },
-  { id: `${id}-thinking-rag`, provider: "openai-compatible", model, rag: true, location: "local", endpoint, requestOptions: { maxOutputTokens: 4096, reasoningBudget: 3072, reasoningMode: "enabled" } },
+const gemmaVariants = (id: string, model: string, endpoint: string): Variant[] => [
+  {
+    id,
+    provider: "openai-compatible",
+    model,
+    rag: false,
+    location: "local",
+    endpoint,
+    requestOptions: { maxOutputTokens: 1024, reasoningMode: "disabled" },
+  },
+  {
+    id: `${id}-rag`,
+    provider: "openai-compatible",
+    model,
+    rag: true,
+    location: "local",
+    endpoint,
+    requestOptions: { maxOutputTokens: 1024, reasoningMode: "disabled" },
+  },
+  {
+    id: `${id}-thinking`,
+    provider: "openai-compatible",
+    model,
+    rag: false,
+    location: "local",
+    endpoint,
+    requestOptions: { maxOutputTokens: 4096, reasoningBudget: 3072, reasoningMode: "enabled" },
+  },
+  {
+    id: `${id}-thinking-rag`,
+    provider: "openai-compatible",
+    model,
+    rag: true,
+    location: "local",
+    endpoint,
+    requestOptions: { maxOutputTokens: 4096, reasoningBudget: 3072, reasoningMode: "enabled" },
+  },
 ];
 
 export const variants = (): Variant[] => {
   const gemmaEndpoint = process.env.GEMMA_ENDPOINT;
   const definitions: Variant[] = [
-    { id: "gemini-3.5-flash-lite", provider: "gemini", model: "gemini-3.5-flash-lite", rag: false, location: "global" },
-    { id: "gemini-3.5-flash-lite-rag", provider: "gemini", model: "gemini-3.5-flash-lite", rag: true, location: "global" },
-    { id: "gemini-3.7-flash", provider: "gemini", model: "gemini-3.7-flash", rag: false, location: "global" },
-    { id: "gemini-3.7-flash-rag", provider: "gemini", model: "gemini-3.7-flash", rag: true, location: "global" },
-    { id: "claude-sonnet-5", provider: "claude", model: "claude-sonnet-5", rag: false, location: "europe-west1" },
-    { id: "claude-sonnet-5-rag", provider: "claude", model: "claude-sonnet-5", rag: true, location: "europe-west1" },
+    {
+      id: "gemini-3.5-flash-lite",
+      provider: "gemini",
+      model: "gemini-3.5-flash-lite",
+      rag: false,
+      location: "global",
+    },
+    {
+      id: "gemini-3.5-flash-lite-rag",
+      provider: "gemini",
+      model: "gemini-3.5-flash-lite",
+      rag: true,
+      location: "global",
+    },
+    {
+      id: "gemini-3.7-flash",
+      provider: "gemini",
+      model: "gemini-3.7-flash",
+      rag: false,
+      location: "global",
+    },
+    {
+      id: "gemini-3.7-flash-rag",
+      provider: "gemini",
+      model: "gemini-3.7-flash",
+      rag: true,
+      location: "global",
+    },
+    {
+      id: "claude-sonnet-5",
+      provider: "claude",
+      model: "claude-sonnet-5",
+      rag: false,
+      location: "europe-west1",
+    },
+    {
+      id: "claude-sonnet-5-rag",
+      provider: "claude",
+      model: "claude-sonnet-5",
+      rag: true,
+      location: "europe-west1",
+    },
   ];
   if (gemmaEndpoint) {
     const legacyGemmaModelId = process.env.GEMMA_MODEL_ID;
@@ -166,13 +230,13 @@ const ratio = (numerator: number, denominator: number): number =>
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
-const elapsedMs = (startedAt: number): number =>
-  Number((performance.now() - startedAt).toFixed(3));
+const elapsedMs = (startedAt: number): number => Number((performance.now() - startedAt).toFixed(3));
 
 export const durationSummary = (values: number[]) => ({
-  average: values.length === 0
-    ? 0
-    : Number((values.reduce((total, value) => total + value, 0) / values.length).toFixed(3)),
+  average:
+    values.length === 0
+      ? 0
+      : Number((values.reduce((total, value) => total + value, 0) / values.length).toFixed(3)),
   min: values.length === 0 ? 0 : Math.min(...values),
   max: values.length === 0 ? 0 : Math.max(...values),
   p50: percentile(values, 0.5),
@@ -180,7 +244,8 @@ export const durationSummary = (values: number[]) => ({
 });
 
 const metricsFor = (matrix: ConfusionMatrix, total: number) => {
-  const decisive = matrix.truePositive + matrix.trueNegative + matrix.falsePositive + matrix.falseNegative;
+  const decisive =
+    matrix.truePositive + matrix.trueNegative + matrix.falsePositive + matrix.falseNegative;
   const precision = ratio(matrix.truePositive, matrix.truePositive + matrix.falsePositive);
   const recall = ratio(matrix.truePositive, matrix.truePositive + matrix.falseNegative);
   return {
@@ -205,9 +270,7 @@ const main = async (): Promise<void> => {
     10
   );
   if (!datasetPath) {
-    throw new Error(
-      "Usage: npm run benchmark -- <evaluation.jsonl> [report.json] [summary.json]"
-    );
+    throw new Error("Usage: npm run benchmark -- <evaluation.jsonl> [report.json] [summary.json]");
   }
   if (!Number.isInteger(limit) || limit <= 0) {
     throw new Error("BENCHMARK_MAX_RECORDS must be a positive integer.");
@@ -216,11 +279,13 @@ const main = async (): Promise<void> => {
     throw new Error("BENCHMARK_MAX_CONSECUTIVE_FAILURES must be a positive integer.");
   }
   const benchmarkVariants = selectedVariants();
-  const modelEligibleOnly = (process.env.BENCHMARK_MODEL_ELIGIBLE_ONLY ?? "false").toLowerCase() === "true";
+  const modelEligibleOnly =
+    (process.env.BENCHMARK_MODEL_ELIGIBLE_ONLY ?? "false").toLowerCase() === "true";
   const dataset = await loadDataset(datasetPath);
-  const records = (modelEligibleOnly
-    ? dataset.filter((record) => analyzeEmail(record.request).result !== "PHISHING")
-    : dataset
+  const records = (
+    modelEligibleOnly
+      ? dataset.filter((record) => analyzeEmail(record.request).result !== "PHISHING")
+      : dataset
   ).slice(0, limit);
   if (records.length === 0) {
     throw new Error("No evaluation records matched the benchmark selection.");
@@ -239,11 +304,13 @@ const main = async (): Promise<void> => {
     let rag: RagRetrievalResult | undefined;
     let ragDurationMs: number | undefined;
     if (heuristic.result !== "PHISHING" && ragRetriever) {
-      console.info(JSON.stringify({
-        event: "benchmark_rag_retrieval_started",
-        record: index + 1,
-        total: records.length,
-      }));
+      console.info(
+        JSON.stringify({
+          event: "benchmark_rag_retrieval_started",
+          record: index + 1,
+          total: records.length,
+        })
+      );
       try {
         const ragStartedAt = performance.now();
         rag = await ragRetriever.retrieve(record.request);
@@ -336,12 +403,14 @@ const main = async (): Promise<void> => {
         continue;
       }
       const startedAt = performance.now();
-      console.info(JSON.stringify({
-        event: "benchmark_model_request_started",
-        record: index + 1,
-        total: records.length,
-        variant: variant.id,
-      }));
+      console.info(
+        JSON.stringify({
+          event: "benchmark_model_request_started",
+          record: index + 1,
+          total: records.length,
+          variant: variant.id,
+        })
+      );
       modelAttempts += 1;
       let response;
       try {
@@ -349,21 +418,25 @@ const main = async (): Promise<void> => {
           {
             request: record.request,
             heuristic,
-            ragDocuments: variant.rag ? cached.rag?.documents ?? [] : [],
+            ragDocuments: variant.rag ? (cached.rag?.documents ?? []) : [],
           },
           variant.requestOptions
         );
       } catch (error) {
         const modelDurationMs = elapsedMs(startedAt);
-        const totalMs = Number((heuristicDurationMs + (ragDurationMs ?? 0) + modelDurationMs).toFixed(3));
+        const totalMs = Number(
+          (heuristicDurationMs + (ragDurationMs ?? 0) + modelDurationMs).toFixed(3)
+        );
         const message = errorMessage(error);
         const modelError: BenchmarkModelError = {
           error: message,
           record: index + 1,
-          ...(error instanceof InvalidModelResponseError ? {
-            diagnostics: error.diagnostics,
-            invalidOutput: error.debugOutput,
-          } : {}),
+          ...(error instanceof InvalidModelResponseError
+            ? {
+                diagnostics: error.diagnostics,
+                invalidOutput: error.debugOutput,
+              }
+            : {}),
         };
         modelFailures += 1;
         consecutiveModelFailures += 1;
@@ -377,23 +450,29 @@ const main = async (): Promise<void> => {
           succeeded: false,
           totalMs,
         });
-        console.error(JSON.stringify({
-          event: "benchmark_model_request_failed",
-          error: message,
-          ...(error instanceof InvalidModelResponseError ? {
-            diagnostics: error.diagnostics,
-            invalidOutput: error.debugOutput,
-          } : {}),
-          record: index + 1,
-          variant: variant.id,
-        }));
+        console.error(
+          JSON.stringify({
+            event: "benchmark_model_request_failed",
+            error: message,
+            ...(error instanceof InvalidModelResponseError
+              ? {
+                  diagnostics: error.diagnostics,
+                  invalidOutput: error.debugOutput,
+                }
+              : {}),
+            record: index + 1,
+            variant: variant.id,
+          })
+        );
         if (consecutiveModelFailures >= maxConsecutiveFailures) {
           abortedAfterConsecutiveFailures = true;
-          console.error(JSON.stringify({
-            event: "benchmark_variant_aborted",
-            consecutiveFailures: consecutiveModelFailures,
-            variant: variant.id,
-          }));
+          console.error(
+            JSON.stringify({
+              event: "benchmark_variant_aborted",
+              consecutiveFailures: consecutiveModelFailures,
+              variant: variant.id,
+            })
+          );
           break;
         }
         continue;
@@ -492,28 +571,35 @@ const main = async (): Promise<void> => {
   if (reportBucket) {
     const object = `reports/${year}/${month}/${day}/${objectName}`;
     await new CloudStorageJsonWriter(reportBucket).write(object, report);
-    console.info(JSON.stringify({
-      event: "benchmark_report_uploaded",
-      bucket: reportBucket,
-      object,
-    }));
+    console.info(
+      JSON.stringify({
+        event: "benchmark_report_uploaded",
+        bucket: reportBucket,
+        object,
+      })
+    );
   }
 
   const summaryBucket = process.env.BENCHMARK_SUMMARY_BUCKET;
   if (summaryBucket) {
     const object = `summaries/${year}/${month}/${day}/${objectName}`;
     await new CloudStorageJsonWriter(summaryBucket).write(object, summary);
-    console.info(JSON.stringify({
-      event: "benchmark_summary_uploaded",
-      bucket: summaryBucket,
-      object,
-    }));
+    console.info(
+      JSON.stringify({
+        event: "benchmark_summary_uploaded",
+        bucket: summaryBucket,
+        object,
+      })
+    );
   }
 
-  const failures = Object.values(report.variants as Record<string, { modelFailures: number }>)
-    .reduce((total, variant) => total + variant.modelFailures, 0);
+  const failures = Object.values(
+    report.variants as Record<string, { modelFailures: number }>
+  ).reduce((total, variant) => total + variant.modelFailures, 0);
   if (failures > 0) {
-    throw new Error(`Benchmark completed with ${failures} model response failure(s). See ${outputPath}.`);
+    throw new Error(
+      `Benchmark completed with ${failures} model response failure(s). See ${outputPath}.`
+    );
   }
 };
 

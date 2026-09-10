@@ -39,11 +39,31 @@ test("adds RAG and thinking modes for every local Gemma family", () => {
       "gemma-4-26b-a4b-thinking-rag",
     ]
   );
-  assert.equal(localVariants.find((variant) => variant.id === "gemma-4-12b-q8_0")?.requestOptions?.reasoningMode, "disabled");
-  assert.equal(localVariants.find((variant) => variant.id === "gemma-4-12b-q8_0")?.requestOptions?.maxOutputTokens, 1024);
-  assert.equal(localVariants.find((variant) => variant.id === "gemma-4-26b-a4b-thinking-rag")?.requestOptions?.reasoningMode, "enabled");
-  assert.equal(localVariants.find((variant) => variant.id === "gemma-4-26b-a4b-thinking-rag")?.requestOptions?.maxOutputTokens, 4096);
-  assert.equal(localVariants.find((variant) => variant.id === "gemma-4-26b-a4b-thinking-rag")?.requestOptions?.reasoningBudget, 3072);
+  assert.equal(
+    localVariants.find((variant) => variant.id === "gemma-4-12b-q8_0")?.requestOptions
+      ?.reasoningMode,
+    "disabled"
+  );
+  assert.equal(
+    localVariants.find((variant) => variant.id === "gemma-4-12b-q8_0")?.requestOptions
+      ?.maxOutputTokens,
+    1024
+  );
+  assert.equal(
+    localVariants.find((variant) => variant.id === "gemma-4-26b-a4b-thinking-rag")?.requestOptions
+      ?.reasoningMode,
+    "enabled"
+  );
+  assert.equal(
+    localVariants.find((variant) => variant.id === "gemma-4-26b-a4b-thinking-rag")?.requestOptions
+      ?.maxOutputTokens,
+    4096
+  );
+  assert.equal(
+    localVariants.find((variant) => variant.id === "gemma-4-26b-a4b-thinking-rag")?.requestOptions
+      ?.reasoningBudget,
+    3072
+  );
 });
 
 test("uses model-family aliases before the legacy Gemma alias", () => {
@@ -55,8 +75,14 @@ test("uses model-family aliases before the legacy Gemma alias", () => {
   const definitions = variants();
 
   assert.equal(definitions.find((variant) => variant.id === "gemma-4-e4b")?.model, "legacy");
-  assert.equal(definitions.find((variant) => variant.id === "gemma-4-12b-q8_0")?.model, "gemma-12b-local");
-  assert.equal(definitions.find((variant) => variant.id === "gemma-4-26b-a4b")?.model, "gemma-26b-local");
+  assert.equal(
+    definitions.find((variant) => variant.id === "gemma-4-12b-q8_0")?.model,
+    "gemma-12b-local"
+  );
+  assert.equal(
+    definitions.find((variant) => variant.id === "gemma-4-26b-a4b")?.model,
+    "gemma-26b-local"
+  );
 });
 
 test("summarizes per-email processing durations", () => {
