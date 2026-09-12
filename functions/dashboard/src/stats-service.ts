@@ -7,41 +7,65 @@ import {
   queryTimelineBuckets,
   queryTopHeuristics,
 } from "./database";
-import { getMockScans, getMockStats } from "./mock-data";
 import type { DashboardStatsResponse, ScanItem, ScansListResponse } from "./types";
 
-const isProduction = (): boolean => {
-  return process.env.NODE_ENV === "production" || Boolean(process.env.K_SERVICE);
-};
+const emptyStats = (): DashboardStatsResponse => ({
+  overview: {
+    totalScans: 0,
+    phishingCount: 0,
+    warningCount: 0,
+    okCount: 0,
+    phishingRate: 0,
+    warningRate: 0,
+    okRate: 0,
+    heuristicRouteCount: 0,
+    llmRouteCount: 0,
+    heuristicShieldRate: 0,
+    avgDurationMs: 0,
+    avgLlmDurationMs: 0,
+    avgHeuristicDurationMs: 0,
+    totalInputTokens: 0,
+    totalOutputTokens: 0,
+    estimatedCostUsd: 0,
+  },
+  timeline: [],
+  models: [],
+  topHeuristicFindings: [],
+  isMockData: false,
+  generatedAt: new Date().toISOString(),
+  dbStatus: "no_config",
+});
 
 export const getDashboardStats = async (range = "all"): Promise<DashboardStatsResponse> => {
   const config = databaseConfigFromEnv();
   const pool = await getDatabasePool();
 
-  // If no database config exists (local dev without GCP), return mock preview
+  // If no database config exists (local dev without GCP), return empty dashboard
   if (!pool || !config) {
     console.info(
       JSON.stringify({
         severity: "INFO",
-        event: "dashboard_mock_preview",
-        message: "No database configuration found, serving local mock preview",
+        event: "dashboard_no_database",
+        message: "No database configuration found — returning empty dashboard",
       })
     );
-    return getMockStats();
+    return emptyStats();
   }
 
   try {
     const overview = await queryOverviewMetrics(pool, range);
-    // If the table is legitimately empty (0 scans yet)
+
+    // If database is connected but table is empty, return real zeros (no mock data)
     if (overview.totalScans === 0) {
-      console.warn(
-        JSON.stringify({
-          severity: "WARNING",
-          event: "dashboard_empty_database",
-          message: "process_results table has 0 records, falling back to mock preview",
-        })
-      );
-      return getMockStats();
+      return {
+        overview,
+        timeline: [],
+        models: [],
+        topHeuristicFindings: [],
+        isMockData: false,
+        generatedAt: new Date().toISOString(),
+        dbStatus: "connected_empty",
+      };
     }
 
     const [timeline, models, topHeuristicFindings] = await Promise.all([
@@ -57,6 +81,7 @@ export const getDashboardStats = async (range = "all"): Promise<DashboardStatsRe
       topHeuristicFindings,
       isMockData: false,
       generatedAt: new Date().toISOString(),
+      dbStatus: "connected",
     };
   } catch (error) {
     console.error(
@@ -65,15 +90,12 @@ export const getDashboardStats = async (range = "all"): Promise<DashboardStatsRe
         event: "dashboard_query_error",
         message: "Failed to query live metrics from PostgreSQL",
         error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
       })
     );
 
-    // In production, do not mask real database failures with fake data
-    if (isProduction()) {
-      throw error;
-    }
-
-    return getMockStats();
+    // Surface the real error instead of masking it with mock data
+    throw error;
   }
 };
 
@@ -86,28 +108,15 @@ export const getRecentScansList = async (
   const pool = await getDatabasePool();
 
   if (!pool || !config) {
-    const mock = getMockScans();
-    const filtered =
-      verdict && verdict !== "ALL" ? mock.filter((s) => s.finalResult === verdict) : mock;
     return {
-      scans: filtered.slice(0, clampedLimit),
-      total: filtered.length,
-      isMockData: true,
+      scans: [],
+      total: 0,
+      isMockData: false,
     };
   }
 
   try {
     const rows = await queryRecentScans(pool, clampedLimit, verdict);
-    if (rows.length === 0) {
-      const mock = getMockScans();
-      const filtered =
-        verdict && verdict !== "ALL" ? mock.filter((s) => s.finalResult === verdict) : mock;
-      return {
-        scans: filtered.slice(0, clampedLimit),
-        total: filtered.length,
-        isMockData: true,
-      };
-    }
 
     const scans: ScanItem[] = rows.map((r) => ({
       id: r.id,
@@ -141,20 +150,10 @@ export const getRecentScansList = async (
         event: "dashboard_recent_scans_error",
         message: "Failed to query recent scans from PostgreSQL",
         error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
       })
     );
 
-    if (isProduction()) {
-      throw error;
-    }
-
-    const mock = getMockScans();
-    const filtered =
-      verdict && verdict !== "ALL" ? mock.filter((s) => s.finalResult === verdict) : mock;
-    return {
-      scans: filtered.slice(0, clampedLimit),
-      total: filtered.length,
-      isMockData: true,
-    };
+    throw error;
   }
 };

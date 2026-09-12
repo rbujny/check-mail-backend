@@ -50,7 +50,7 @@ app.get(
   "/api/stats",
   async (
     req: Request,
-    res: Response<DashboardStatsResponse | { error: string }>
+    res: Response<DashboardStatsResponse | { error: string; dbStatus: string }>
   ): Promise<void> => {
     try {
       const range = typeof req.query.range === "string" ? req.query.range : "all";
@@ -64,7 +64,10 @@ app.get(
           error: error instanceof Error ? error.message : String(error),
         })
       );
-      res.status(500).json({ error: "Failed to load dashboard statistics." });
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Failed to load dashboard statistics.",
+        dbStatus: "error",
+      });
     }
   }
 );

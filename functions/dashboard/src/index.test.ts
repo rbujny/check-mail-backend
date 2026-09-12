@@ -63,22 +63,20 @@ test("mock scans data provides valid records", () => {
   }
 });
 
-test("stats-service fallback to mock data when database is absent", async () => {
+test("stats-service returns empty data with dbStatus when no database", async () => {
   const stats = await getDashboardStats("all");
   assert.ok(stats);
-  assert.ok(stats.overview.totalScans > 0);
-
-  const scansResponse = await getRecentScansList(10);
-  assert.ok(scansResponse.scans.length > 0);
-  assert.ok(scansResponse.scans.length <= 10);
+  assert.equal(stats.overview.totalScans, 0);
+  assert.equal(stats.isMockData, false);
+  assert.equal(stats.dbStatus, "no_config");
+  assert.ok(stats.generatedAt);
 });
 
-test("recent scans filter by verdict", async () => {
-  const phishingOnly = await getRecentScansList(10, "PHISHING");
-  assert.ok(phishingOnly.scans.every((s) => s.finalResult === "PHISHING"));
-
-  const okOnly = await getRecentScansList(10, "OK");
-  assert.ok(okOnly.scans.every((s) => s.finalResult === "OK"));
+test("recent scans returns empty array when no database", async () => {
+  const scansResponse = await getRecentScansList(10);
+  assert.deepEqual(scansResponse.scans, []);
+  assert.equal(scansResponse.total, 0);
+  assert.equal(scansResponse.isMockData, false);
 });
 
 test("renderDashboardHtml returns technical dashboard HTML with React and Tailwind", async () => {
