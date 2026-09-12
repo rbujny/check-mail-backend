@@ -977,7 +977,8 @@ export const renderDashboardHtml = (): string => {
       const fetchTelemetry = useCallback(async (r) => {
         setIsRefreshing(true);
         try {
-          const statsRes = await fetch('/api/stats?range=' + (r || range));
+          const apiBase = window.location.pathname.replace(/\/+$/, '');
+          const statsRes = await fetch(apiBase + '/api/stats?range=' + (r || range));
           if (statsRes.ok) {
             const data = await statsRes.json();
             setStatsData(data);
@@ -989,7 +990,7 @@ export const renderDashboardHtml = (): string => {
             setStatsData({ dbStatus: errBody.dbStatus || 'error', error: errBody.error });
           }
 
-          const scansRes = await fetch('/api/scans?limit=50');
+          const scansRes = await fetch(apiBase + '/api/scans?limit=50');
           if (scansRes.ok) {
             const data = await scansRes.json();
             setScansData(data.scans || []);

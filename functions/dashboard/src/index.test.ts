@@ -100,3 +100,20 @@ test("rate limiter clamps excessive requests from single IP", async () => {
   assert.equal(checkRateLimit(testIp, 5, 60000), false);
   clearRateLimits();
 });
+
+test("prefix normalization strips /checkmail-dashboard for health endpoint", async () => {
+  const http = await import("node:http");
+  const { app } = await import("./index");
+  const server = http.createServer(app);
+  await new Promise<void>((resolve) => server.listen(0, resolve));
+  const addr = server.address();
+  const port = typeof addr === "object" && addr !== null ? addr.port : 0;
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/checkmail-dashboard/health`);
+    assert.equal(res.status, 200);
+    const body = (await res.json()) as { status: string };
+    assert.equal(body.status, "healthy");
+  } finally {
+    server.close();
+  }
+});
