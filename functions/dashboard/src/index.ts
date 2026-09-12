@@ -29,7 +29,7 @@ app.use((_req: Request, res: Response, next: NextFunction): void => {
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
       "font-src https://fonts.gstatic.com data:; " +
       "img-src 'self' data:; " +
-      "connect-src 'self'; " +
+      "connect-src 'self' https://unpkg.com https://cdn.jsdelivr.net; " +
       "frame-ancestors 'none';"
   );
   res.setHeader("X-Content-Type-Options", "nosniff");
@@ -37,6 +37,11 @@ app.use((_req: Request, res: Response, next: NextFunction): void => {
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   next();
+});
+
+// Favicon handler
+app.get("/favicon.ico", (_req: Request, res: Response): void => {
+  res.status(204).end();
 });
 
 // Healthcheck (publicly accessible for Cloud Run/GCP liveness checks)
