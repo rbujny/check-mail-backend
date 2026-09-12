@@ -12,6 +12,14 @@ const app = express();
 app.disable("x-powered-by");
 app.use(express.json({ limit: "1mb" }));
 
+// Normalize Cloud Functions Gen 2 URL path prefix if accessed via cloudfunctions.net
+app.use((req: Request, _res: Response, next: NextFunction): void => {
+  if (req.url.startsWith("/checkmail-dashboard")) {
+    req.url = req.url.replace(/^\/checkmail-dashboard/, "") || "/";
+  }
+  next();
+});
+
 // Security Headers Middleware
 app.use((_req: Request, res: Response, next: NextFunction): void => {
   res.setHeader(
