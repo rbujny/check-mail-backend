@@ -20,6 +20,11 @@ resource "google_firestore_database" "default" {
   depends_on = [google_project_service.firestore]
 }
 
+import {
+  to = google_firestore_index.rag_vector
+  id = "projects/${var.project_id}/databases/(default)/collectionGroups/${var.rag_collection}/indexes/CICAgJiUpoMK"
+}
+
 resource "google_firestore_index" "rag_vector" {
   project     = var.project_id
   database    = google_firestore_database.default.name

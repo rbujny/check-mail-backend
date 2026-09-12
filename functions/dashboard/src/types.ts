@@ -70,6 +70,7 @@ export interface DashboardStatsResponse {
   topHeuristicFindings: HeuristicFindingStat[];
   isMockData: boolean;
   generatedAt: string;
+  dbStatus?: "connected" | "connected_empty" | "no_config" | "error";
 }
 
 export interface ScanItem {

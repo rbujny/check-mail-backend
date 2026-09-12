@@ -120,8 +120,19 @@ export const renderDashboardHtml = (): string => {
     };
 
     // --- Header Component ---
-    function Header({ statusData, range, onRangeChange, onRefresh, isRefreshing, lastRefreshed }) {
-      const isMock = statusData?.isMockData ?? true;
+    function Header({ statusData, fetchError, range, onRangeChange, onRefresh, isRefreshing, lastRefreshed }) {
+      const dbStatus = statusData?.dbStatus || (fetchError ? 'error' : null);
+      const statusConfig = (() => {
+        if (fetchError) return { dot: 'bg-red-500', label: 'DB_ERROR', title: fetchError };
+        if (!statusData) return { dot: 'bg-blue-500 animate-pulse', label: 'LOADING', title: 'Fetching telemetry...' };
+        switch (dbStatus) {
+          case 'connected': return { dot: 'bg-emerald-500', label: 'LIVE', title: 'Connected to Cloud SQL' };
+          case 'connected_empty': return { dot: 'bg-zinc-400', label: 'NO_DATA', title: 'Connected — table is empty. Send some emails through /process.' };
+          case 'no_config': return { dot: 'bg-amber-500', label: 'NO_DB_CONFIG', title: 'DB env vars not set (local mode)' };
+          case 'error': return { dot: 'bg-red-500', label: 'DB_ERROR', title: statusData?.error || 'Database query failed' };
+          default: return { dot: 'bg-zinc-500', label: 'UNKNOWN', title: 'Unknown database status' };
+        }
+      })();
 
       return (
         <header class="sticky top-0 z-30 h-12 border-b border-zinc-800 bg-[#09090b] px-4 flex items-center justify-between select-none">
@@ -144,10 +155,10 @@ export const renderDashboardHtml = (): string => {
           </div>
 
           <div class="flex items-center gap-3">
-            {/* Live / Demo Mode Telemetry Indicator */}
-            <div class="inline-flex items-center gap-1.5 px-2 py-0.5 border border-zinc-800 rounded-[4px] bg-zinc-900/90 text-[11px] font-mono text-zinc-300">
-              <span class={'w-1.5 h-1.5 rounded-full ' + (isMock ? 'bg-amber-500' : 'bg-emerald-500')}></span>
-              <span>{isMock ? 'DEMO_PREVIEW' : 'LIVE_CLOUD_SQL'}</span>
+            {/* Database Connection Status Indicator */}
+            <div class="inline-flex items-center gap-1.5 px-2 py-0.5 border border-zinc-800 rounded-[4px] bg-zinc-900/90 text-[11px] font-mono text-zinc-300 cursor-help" title={statusConfig.title}>
+              <span class={'w-1.5 h-1.5 rounded-full ' + statusConfig.dot}></span>
+              <span>{statusConfig.label}</span>
             </div>
 
             {/* Time Window Switcher */}
@@ -961,6 +972,7 @@ export const renderDashboardHtml = (): string => {
       const [selectedScan, setSelectedScan] = useState(null);
       const [isRefreshing, setIsRefreshing] = useState(false);
       const [lastRefreshed, setLastRefreshed] = useState(new Date());
+      const [fetchError, setFetchError] = useState(null);
 
       const fetchTelemetry = useCallback(async (r) => {
         setIsRefreshing(true);
@@ -969,6 +981,12 @@ export const renderDashboardHtml = (): string => {
           if (statsRes.ok) {
             const data = await statsRes.json();
             setStatsData(data);
+            setFetchError(null);
+          } else {
+            const errBody = await statsRes.json().catch(() => ({}));
+            setFetchError(errBody.error || 'HTTP ' + statsRes.status + ': Failed to load stats');
+            // Still set statsData with dbStatus for the header badge
+            setStatsData({ dbStatus: errBody.dbStatus || 'error', error: errBody.error });
           }
 
           const scansRes = await fetch('/api/scans?limit=50');
@@ -980,6 +998,7 @@ export const renderDashboardHtml = (): string => {
           setLastRefreshed(new Date());
         } catch (err) {
           console.error('Telemetry polling error:', err);
+          setFetchError('Network error: ' + (err.message || 'Unable to reach dashboard API'));
         } finally {
           setIsRefreshing(false);
         }
@@ -1015,6 +1034,7 @@ export const renderDashboardHtml = (): string => {
         <div class="min-h-screen flex flex-col bg-[#09090b]">
           <Header
             statusData={statsData}
+            fetchError={fetchError}
             range={range}
             onRangeChange={(newRange) => {
               setRange(newRange);
