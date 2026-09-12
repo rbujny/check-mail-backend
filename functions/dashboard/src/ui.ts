@@ -977,7 +977,8 @@ export const renderDashboardHtml = (): string => {
       const fetchTelemetry = useCallback(async (r) => {
         setIsRefreshing(true);
         try {
-          const apiBase = window.location.pathname.replace(/\/+$/, '');
+          const p = window.location.pathname;
+          const apiBase = p.endsWith('/') ? p.slice(0, -1) : p;
           const statsRes = await fetch(apiBase + '/api/stats?range=' + (r || range));
           if (statsRes.ok) {
             const data = await statsRes.json();
