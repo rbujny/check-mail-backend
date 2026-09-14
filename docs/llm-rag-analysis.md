@@ -26,6 +26,8 @@ The request may select an allowlisted managed model at runtime through the optio
 
 Every benchmark model has no-RAG and RAG variants. Gemma variants are included only when `GEMMA_ENDPOINT` is configured because the open model needs separately provisioned compute.
 
+Gemini generation settings are model-aware. Gemini 3.7 Flash uses the supported `LOW` thinking level and omits the unsupported `temperature` parameter. Other configured Gemini models retain their existing minimal deterministic generation settings.
+
 ## Prompt and privacy boundary
 
 The model receives the normalized subject/body, authentication verdicts, sender-domain relationships, URL schemes and hostnames, received-hop count, heuristic score/codes, and retrieved corpus snippets. Recipient addresses, full sender addresses, URL paths/query strings, and raw `Received` headers are excluded. Production email inputs and prompts are not persisted and are never written to logs. The benchmark-only exception is the sanitized public evaluation dataset described below.

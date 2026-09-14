@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildOpenAiCompatibleRequestBody, buildPrompt, parseAssessment } from "./model-provider";
+import {
+  buildGeminiGenerationConfig,
+  buildOpenAiCompatibleRequestBody,
+  buildPrompt,
+  parseAssessment,
+} from "./model-provider";
 import type { ModelInput } from "./model-provider";
 
 const input: ModelInput = {
@@ -87,6 +92,24 @@ test("parseAssessment rejects result values that differ by more than case", () =
       ),
     /assessment contract/u
   );
+});
+
+test("Gemini 3.7 Flash uses a supported thinking level without temperature", () => {
+  const config = buildGeminiGenerationConfig("gemini-3.7-flash", {
+    maxOutputTokens: 512,
+  });
+
+  assert.equal(config.maxOutputTokens, 512);
+  assert.deepEqual(config.thinkingConfig, { thinkingLevel: "LOW" });
+  assert.equal(config.temperature, undefined);
+});
+
+test("other Gemini models preserve the minimal deterministic configuration", () => {
+  const config = buildGeminiGenerationConfig("gemini-3.5-flash-lite");
+
+  assert.equal(config.maxOutputTokens, 256);
+  assert.deepEqual(config.thinkingConfig, { thinkingLevel: "MINIMAL" });
+  assert.equal(config.temperature, 0);
 });
 
 test("OpenAI-compatible request disables reasoning for the regular Gemma variant", () => {

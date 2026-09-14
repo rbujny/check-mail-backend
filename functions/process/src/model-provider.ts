@@ -174,6 +174,30 @@ const assessmentSchema = {
   },
 };
 
+export const buildGeminiGenerationConfig = (
+  modelId: string,
+  options: ModelRequestOptions = {}
+): JsonRecord => {
+  const commonConfig: JsonRecord = {
+    maxOutputTokens: options.maxOutputTokens ?? 256,
+    responseMimeType: "application/json",
+    responseSchema: assessmentSchema,
+  };
+
+  if (modelId === "gemini-3.7-flash") {
+    return {
+      ...commonConfig,
+      thinkingConfig: { thinkingLevel: "LOW" },
+    };
+  }
+
+  return {
+    ...commonConfig,
+    temperature: 0,
+    thinkingConfig: { thinkingLevel: "MINIMAL" },
+  };
+};
+
 const endpointForLocation = (location: string): string =>
   location === "global"
     ? "https://aiplatform.googleapis.com"
@@ -209,13 +233,7 @@ export class GeminiProvider extends AuthenticatedProvider implements ModelProvid
           ],
         },
         contents: [{ role: "user", parts: [{ text: buildPrompt(input) }] }],
-        generationConfig: {
-          temperature: 0,
-          maxOutputTokens: options.maxOutputTokens ?? 256,
-          responseMimeType: "application/json",
-          responseSchema: assessmentSchema,
-          thinkingConfig: { thinkingLevel: "MINIMAL" },
-        },
+        generationConfig: buildGeminiGenerationConfig(this.config.llmModelId, options),
       },
       this.config.llmTimeoutMs
     );
