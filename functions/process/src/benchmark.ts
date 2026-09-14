@@ -232,6 +232,37 @@ const errorMessage = (error: unknown): string =>
 
 const elapsedMs = (startedAt: number): number => Number((performance.now() - startedAt).toFixed(3));
 
+const nonNegativeIntegerFromEnv = (name: string, defaultValue: number): number => {
+  const value = Number.parseInt(process.env[name] ?? "", 10);
+  return Number.isInteger(value) && value >= 0 ? value : defaultValue;
+};
+
+export const isResourceExhaustedError = (error: unknown): boolean => {
+  const record =
+    typeof error === "object" && error !== null ? (error as Record<string, unknown>) : undefined;
+  const response =
+    typeof record?.response === "object" && record.response !== null
+      ? (record.response as Record<string, unknown>)
+      : undefined;
+  return (
+    record?.code === 429 ||
+    record?.code === "RESOURCE_EXHAUSTED" ||
+    response?.status === 429 ||
+    /(?:resource has been exhausted|resource_exhausted|quota exceeded|status(?: code)? 429|\b429\b)/iu.test(
+      errorMessage(error)
+    )
+  );
+};
+
+export const exponentialBackoffMs = (
+  retryIndex: number,
+  initialDelayMs: number,
+  maximumDelayMs: number
+): number => Math.min(initialDelayMs * 2 ** retryIndex, maximumDelayMs);
+
+const sleep = async (delayMs: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, delayMs));
+
 export const durationSummary = (values: number[]) => ({
   average:
     values.length === 0
@@ -269,6 +300,19 @@ const main = async (): Promise<void> => {
     process.env.BENCHMARK_MAX_CONSECUTIVE_FAILURES ?? "3",
     10
   );
+  const geminiRequestIntervalMs = nonNegativeIntegerFromEnv(
+    "BENCHMARK_GEMINI_REQUEST_INTERVAL_MS",
+    2_000
+  );
+  const geminiBackoffInitialMs = nonNegativeIntegerFromEnv(
+    "BENCHMARK_GEMINI_BACKOFF_INITIAL_MS",
+    10_000
+  );
+  const geminiBackoffMaximumMs = nonNegativeIntegerFromEnv(
+    "BENCHMARK_GEMINI_BACKOFF_MAX_MS",
+    60_000
+  );
+  const geminiMaximumRetries = nonNegativeIntegerFromEnv("BENCHMARK_GEMINI_MAX_RETRIES", 5);
   if (!datasetPath) {
     throw new Error("Usage: npm run benchmark -- <evaluation.jsonl> [report.json] [summary.json]");
   }
@@ -360,6 +404,7 @@ const main = async (): Promise<void> => {
     let modelCalls = 0;
     let modelAttempts = 0;
     let modelFailures = 0;
+    let rateLimitRetries = 0;
     const modelErrors: BenchmarkModelError[] = [];
     const misclassifications: BenchmarkMisclassification[] = [];
     let heuristicBypasses = 0;
@@ -367,6 +412,21 @@ const main = async (): Promise<void> => {
     let abortedAfterConsecutiveFailures = false;
     const latencies: number[] = [];
     const emailProcessingTimes: EmailProcessingTime[] = [];
+    let lastGeminiRequestStartedAt = 0;
+
+    const waitForGeminiRequestSlot = async (): Promise<void> => {
+      if (variant.provider !== "gemini") {
+        return;
+      }
+      const waitMs = Math.max(
+        0,
+        geminiRequestIntervalMs - (Date.now() - lastGeminiRequestStartedAt)
+      );
+      if (waitMs > 0) {
+        await sleep(waitMs);
+      }
+      lastGeminiRequestStartedAt = Date.now();
+    };
 
     for (const [index, record] of records.entries()) {
       const cached = evaluationCache.get(record.id);
@@ -402,6 +462,7 @@ const main = async (): Promise<void> => {
         }
         continue;
       }
+      await waitForGeminiRequestSlot();
       const startedAt = performance.now();
       console.info(
         JSON.stringify({
@@ -414,14 +475,44 @@ const main = async (): Promise<void> => {
       modelAttempts += 1;
       let response;
       try {
-        response = await provider.assess(
-          {
-            request: record.request,
-            heuristic,
-            ragDocuments: variant.rag ? (cached.rag?.documents ?? []) : [],
-          },
-          variant.requestOptions
-        );
+        for (let retryIndex = 0; ; retryIndex += 1) {
+          try {
+            response = await provider.assess(
+              {
+                request: record.request,
+                heuristic,
+                ragDocuments: variant.rag ? (cached.rag?.documents ?? []) : [],
+              },
+              variant.requestOptions
+            );
+            break;
+          } catch (error) {
+            if (
+              variant.provider !== "gemini" ||
+              !isResourceExhaustedError(error) ||
+              retryIndex >= geminiMaximumRetries
+            ) {
+              throw error;
+            }
+            const backoffMs = exponentialBackoffMs(
+              retryIndex,
+              geminiBackoffInitialMs,
+              geminiBackoffMaximumMs
+            );
+            rateLimitRetries += 1;
+            console.warn(
+              JSON.stringify({
+                event: "benchmark_gemini_rate_limit_backoff",
+                backoffMs,
+                record: index + 1,
+                retry: retryIndex + 1,
+                variant: variant.id,
+              })
+            );
+            await sleep(backoffMs);
+            lastGeminiRequestStartedAt = Date.now();
+          }
+        }
       } catch (error) {
         const modelDurationMs = elapsedMs(startedAt);
         const totalMs = Number(
@@ -539,6 +630,8 @@ const main = async (): Promise<void> => {
       modelAttempts,
       modelFailures,
       modelFailureRate: ratio(modelFailures, modelAttempts),
+      modelRequestAttempts: modelAttempts + rateLimitRetries,
+      rateLimitRetries,
       modelErrors,
       misclassifications,
       abortedAfterConsecutiveFailures,

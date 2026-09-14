@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 
-import { durationSummary, variants } from "./benchmark";
+import {
+  durationSummary,
+  exponentialBackoffMs,
+  isResourceExhaustedError,
+  variants,
+} from "./benchmark";
 
 const gemmaEnvironmentKeys = [
   "GEMMA_ENDPOINT",
@@ -100,4 +105,19 @@ test("summarizes per-email processing durations", () => {
     p50: 0,
     p95: 0,
   });
+});
+
+test("recognizes Gemini resource exhaustion errors", () => {
+  assert.equal(isResourceExhaustedError(new Error("Resource has been exhausted")), true);
+  assert.equal(isResourceExhaustedError({ response: { status: 429 } }), true);
+  assert.equal(isResourceExhaustedError({ code: "RESOURCE_EXHAUSTED" }), true);
+  assert.equal(isResourceExhaustedError(new Error("Model response is not valid JSON")), false);
+});
+
+test("caps exponential Gemini backoff", () => {
+  assert.equal(exponentialBackoffMs(0, 10_000, 60_000), 10_000);
+  assert.equal(exponentialBackoffMs(1, 10_000, 60_000), 20_000);
+  assert.equal(exponentialBackoffMs(2, 10_000, 60_000), 40_000);
+  assert.equal(exponentialBackoffMs(3, 10_000, 60_000), 60_000);
+  assert.equal(exponentialBackoffMs(4, 10_000, 60_000), 60_000);
 });
