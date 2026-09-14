@@ -48,7 +48,7 @@ permissions:
 
 jobs:
   benchmark:
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Verify local Gemma endpoint
