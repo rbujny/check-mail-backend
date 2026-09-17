@@ -62,7 +62,7 @@ Files are located in `/datasets/generated/rag-v2-enrichment-input`. Store genera
 }
 ```
 
-The example above illustrates one entry inside `enrichments` only. Its signals must not be copied to records that do not contain matching evidence. The final RAG v2 corpus will be built by joining these patches to the immutable v1 records by `id`, so the model never rewrites the original subject, content, label, or source metadata.
+The example above illustrates one entry inside `enrichments` only. Its signals must not be copied to records that do not contain matching evidence. The final RAG v2 corpus is built by joining these patches to the immutable v1 records by `id`, so the model never rewrites the original subject, content, label, or source metadata.
 
 ## Generate the batches
 
@@ -72,4 +72,10 @@ python3 tools/datasets/prepare_rag_v2_enrichment_batches.py
 
 The current 2,000-record v1 corpus produces 100 deterministic files with 20 emails each. Generated batch files are intentionally gitignored because they are derived from `rag-corpus.jsonl`.
 
-Process one input file at a time and save each raw JSON response under the matching name in `datasets/generated/rag-v2-enrichment-output/`, for example input `batch-001.json` to output `batch-001.json`. Do not manually merge responses with the source corpus; the final converter will validate IDs and join the enrichment patches to the immutable v1 records.
+Process one input file at a time and save each raw JSON response under the matching name in `datasets/generated/rag-v2-enrichment-output/`, for example input `batch-001.json` to output `batch-001.json`. Do not manually merge responses with the source corpus. Run:
+
+```sh
+python3 tools/datasets/build_rag_v2_corpus.py
+```
+
+The converter validates batch continuity, record order, IDs, signals, explanations, and full source coverage before writing `datasets/generated/rag-v2-corpus.jsonl`. During ingestion, the original message and signals form the embedding text, while the explanation is retained only in the context supplied to the classifier.

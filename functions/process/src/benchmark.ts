@@ -357,7 +357,7 @@ const main = async (): Promise<void> => {
       );
       try {
         const ragStartedAt = performance.now();
-        rag = await ragRetriever.retrieve(record.request);
+        rag = await ragRetriever.retrieve(record.request, heuristic);
         ragDurationMs = elapsedMs(ragStartedAt);
       } catch (error) {
         throw new Error(

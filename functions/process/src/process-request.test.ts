@@ -68,8 +68,10 @@ test("does not call the LLM for an obvious heuristic phishing request", async ()
 
 test("passes retrieved documents to the model", async () => {
   let receivedDocuments = 0;
+  let receivedHeuristicResult: string | undefined;
   const retriever: RagRetriever = {
-    async retrieve() {
+    async retrieve(_request, heuristic) {
+      receivedHeuristicResult = heuristic.result;
       return {
         corpusVersion: "test-v1",
         documents: [{ id: "doc-1", label: "phishing", text: "Credential theft", source: "test" }],
@@ -91,6 +93,7 @@ test("passes retrieved documents to the model", async () => {
   assert.equal(response.status, 200);
   assert.equal(response.body.result, "WARNING");
   assert.equal(receivedDocuments, 1);
+  assert.equal(receivedHeuristicResult, "OK");
 });
 
 test("selects an allowlisted runtime model through the provider resolver", async () => {

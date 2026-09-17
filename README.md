@@ -114,7 +114,15 @@ Production defaults to `gemini-3.5-flash-lite` with RAG enabled. These non-secre
 
 Run the manual `Sync RAG corpus` workflow before deploying a production configuration that enables RAG. The manual `Benchmark LLM pipeline` workflow prepares the same public evaluation data and tests one explicitly selected model with or without RAG on a bounded online sample. Benchmark jobs run on a repository self-hosted Linux x64 runner; this lets Gemma variants call an OpenAI-compatible server through a local `GEMMA_ENDPOINT`, while cloud-model and RAG variants continue to authenticate through Workload Identity. Gemma can be benchmarked both with reasoning disabled and with a bounded thinking budget, independently of RAG. Full reports contain sanitized false-positive/false-negative emails, model outputs, diagnostics, and privacy-safe per-email heuristic/RAG/model/total processing times; they are retained in a private Cloud Storage bucket for 90 days by default and as GitHub artifacts for 14 days. A separate private bucket retains aggregate summaries, including per-email processing-time statistics, without per-message data for long-term comparisons. Production messages remain excluded from benchmark persistence and logs.
 
-RAG v2 enrichment can be prepared manually from the exact RAG v1 records. Run `python3 tools/datasets/prepare_rag_v2_enrichment_batches.py` to create deterministic 20-email JSON batches, then process each batch with the prompt in `docs/rag-v2-enrichment-prompt.md`. Save the model's JSON-only enrichment patches under matching filenames in `datasets/generated/rag-v2-enrichment-output/`; a later validation step will join them to the immutable v1 messages by ID.
+RAG v2 enrichment can be prepared manually from the exact RAG v1 records. Run `python3 tools/datasets/prepare_rag_v2_enrichment_batches.py` to create deterministic 20-email JSON batches, then process each batch with the prompt in `docs/rag-v2-enrichment-prompt.md`. Save the model's JSON-only enrichment patches under matching filenames in `datasets/generated/rag-v2-enrichment-output/`, then run `python3 tools/datasets/build_rag_v2_corpus.py`. The builder validates every ID and enrichment field before joining the patches to the immutable v1 messages.
+
+RAG v2 separates retrieval data from generation context. Document embeddings contain the original message and reviewed security signals; the retrieved model context additionally contains the reviewed explanation. Query embeddings contain the request subject, body, authentication verdicts, and normalized heuristic findings, but never the heuristic score or verdict. This keeps the retrieval query aligned with the enriched corpus without feeding the final heuristic decision back into similarity search. Re-import the generated v2 corpus after changing this representation:
+
+```sh
+cd functions/process
+GOOGLE_CLOUD_PROJECT=project-id RAG_CORPUS_VERSION=v2 \
+  npm run rag:ingest -- ../../datasets/generated/rag-v2-corpus.jsonl
+```
 
 Clients cannot override the token issuer, audience, or add arbitrary claims. These values are controlled by backend configuration.
 

@@ -2,10 +2,15 @@ import { FieldValue, Firestore } from "@google-cloud/firestore";
 import { GoogleAuth } from "google-auth-library";
 
 import type { ProcessConfig } from "./config";
-import type { ProcessEmailRequest, RagDocument, RagRetrievalResult } from "./types";
+import type {
+  AnalysisResult,
+  ProcessEmailRequest,
+  RagDocument,
+  RagRetrievalResult,
+} from "./types";
 
 export interface RagRetriever {
-  retrieve(request: ProcessEmailRequest): Promise<RagRetrievalResult>;
+  retrieve(request: ProcessEmailRequest, heuristic: AnalysisResult): Promise<RagRetrievalResult>;
 }
 
 type EmbeddingResponse = {
@@ -48,14 +53,35 @@ export class VertexEmbeddingClient {
   }
 }
 
-const queryText = (request: ProcessEmailRequest): string =>
-  [
+const isEnrichedCorpusVersion = (corpusVersion: string): boolean =>
+  /^v2(?:$|[-_])/u.test(corpusVersion);
+
+const normalizedHeuristicSignals = (heuristic: AnalysisResult): string[] =>
+  heuristic.findings.map((finding) =>
+    finding.message
+      .trim()
+      .replace(/[.]+$/u, "")
+      .toLowerCase()
+  );
+
+export const buildRagQueryText = (
+  request: ProcessEmailRequest,
+  heuristic: AnalysisResult,
+  corpusVersion: string
+): string => {
+  const parts = [
     request.headers.subject ?? "",
     request.body,
     `SPF=${request.securityVerdicts.spf ?? "unknown"}`,
     `DKIM=${request.securityVerdicts.dkim ?? "unknown"}`,
     `DMARC=${request.securityVerdicts.dmarc ?? "unknown"}`,
-  ].join("\n");
+  ];
+  if (isEnrichedCorpusVersion(corpusVersion)) {
+    const signals = normalizedHeuristicSignals(heuristic);
+    parts.push(`Observed security signals: ${signals.length > 0 ? signals.join("; ") : "none"}`);
+  }
+  return parts.join("\n");
+};
 
 export class FirestoreRagRetriever implements RagRetriever {
   private readonly firestore: Firestore;
@@ -66,8 +92,14 @@ export class FirestoreRagRetriever implements RagRetriever {
     this.embeddings = new VertexEmbeddingClient(config);
   }
 
-  async retrieve(request: ProcessEmailRequest): Promise<RagRetrievalResult> {
-    const embedding = await this.embeddings.embed(queryText(request), "RETRIEVAL_QUERY");
+  async retrieve(
+    request: ProcessEmailRequest,
+    heuristic: AnalysisResult
+  ): Promise<RagRetrievalResult> {
+    const embedding = await this.embeddings.embed(
+      buildRagQueryText(request, heuristic, this.config.ragCorpusVersion),
+      "RETRIEVAL_QUERY"
+    );
     const query = this.firestore
       .collection(this.config.ragCollection)
       .where("corpusVersion", "==", this.config.ragCorpusVersion)

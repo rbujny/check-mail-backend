@@ -12,36 +12,80 @@ type CorpusRecord = {
   text: string;
   source: string;
   sourceRecordId: string;
+  signals?: string[];
+  explanation?: string;
 };
 
-const isCorpusRecord = (value: unknown): value is CorpusRecord => {
+const isCorpusRecord = (value: unknown, corpusVersion: string): value is CorpusRecord => {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return false;
   }
   const record = value as Record<string, unknown>;
-  return (
+  const baseRecordIsValid =
     typeof record.id === "string" &&
     (record.label === "safe" || record.label === "phishing") &&
     typeof record.text === "string" &&
     record.text.length > 0 &&
     record.text.length <= 4000 &&
     typeof record.source === "string" &&
-    typeof record.sourceRecordId === "string"
+    typeof record.sourceRecordId === "string";
+  if (!baseRecordIsValid) {
+    return false;
+  }
+  if (!/^v2(?:$|[-_])/u.test(corpusVersion)) {
+    return true;
+  }
+  return (
+    Array.isArray(record.signals) &&
+    record.signals.length >= 1 &&
+    record.signals.length <= 8 &&
+    record.signals.every(
+      (signal) => typeof signal === "string" && signal.trim().length > 0 && signal.length <= 80
+    ) &&
+    typeof record.explanation === "string" &&
+    record.explanation.trim().length > 0 &&
+    record.explanation.length <= 600
   );
 };
 
-const loadRecords = async (path: string): Promise<CorpusRecord[]> => {
+const loadRecords = async (path: string, corpusVersion: string): Promise<CorpusRecord[]> => {
   const content = await readFile(path, "utf8");
   return content
     .split(/\r?\n/u)
     .filter(Boolean)
     .map((line, index) => {
       const value: unknown = JSON.parse(line);
-      if (!isCorpusRecord(value)) {
+      if (!isCorpusRecord(value, corpusVersion)) {
         throw new Error(`Invalid corpus record at ${basename(path)}:${index + 1}`);
       }
       return value;
     });
+};
+
+export const buildCorpusDocument = (
+  record: CorpusRecord,
+  corpusVersion: string
+): { contextText: string; documentId: string; embeddingText: string } => {
+  if (!/^v2(?:$|[-_])/u.test(corpusVersion)) {
+    return {
+      contextText: record.text,
+      documentId: record.id,
+      embeddingText: record.text,
+    };
+  }
+  if (!record.signals || !record.explanation) {
+    throw new Error("RAG v2 records require signals and explanation.");
+  }
+  const signals = record.signals.join("; ");
+  return {
+    documentId: `${corpusVersion}-${record.id}`,
+    embeddingText: `${record.text}\nObserved security signals: ${signals}`,
+    contextText: [
+      record.text,
+      `Reviewed security signals: ${signals}`,
+      `Reviewed explanation: ${record.explanation}`,
+    ].join("\n"),
+  };
 };
 
 const main = async (): Promise<void> => {
@@ -53,21 +97,28 @@ const main = async (): Promise<void> => {
   if (!config.projectId) {
     throw new Error("GOOGLE_CLOUD_PROJECT must be set.");
   }
-  const records = await loadRecords(path);
+  if (!/^[A-Za-z0-9_-]+$/u.test(config.ragCorpusVersion)) {
+    throw new Error("RAG_CORPUS_VERSION may contain only letters, numbers, '_' and '-'.");
+  }
+  const records = await loadRecords(path, config.ragCorpusVersion);
   const firestore = new Firestore({ projectId: config.projectId, databaseId: "(default)" });
   const embeddings = new VertexEmbeddingClient(config);
 
   for (const [index, record] of records.entries()) {
-    const embedding = await embeddings.embed(record.text, "RETRIEVAL_DOCUMENT");
+    const document = buildCorpusDocument(record, config.ragCorpusVersion);
+    const embedding = await embeddings.embed(document.embeddingText, "RETRIEVAL_DOCUMENT");
     await firestore
       .collection(config.ragCollection)
-      .doc(record.id)
+      .doc(document.documentId)
       .set({
         corpusVersion: config.ragCorpusVersion,
         label: record.label,
-        text: record.text,
+        text: document.contextText,
         source: record.source,
         sourceRecordId: record.sourceRecordId,
+        retrievalSchemaVersion: /^v2(?:$|[-_])/u.test(config.ragCorpusVersion)
+          ? "rag-v2-retrieval-v2"
+          : "rag-v1-retrieval-v1",
         embedding: FieldValue.vector(embedding),
         updatedAt: FieldValue.serverTimestamp(),
       });
@@ -83,7 +134,9 @@ const main = async (): Promise<void> => {
   }
 };
 
-main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exitCode = 1;
+  });
+}

@@ -55,6 +55,19 @@ GOOGLE_CLOUD_PROJECT=project-id RAG_CORPUS_VERSION=v1 npm run rag:ingest -- ../.
 
 Generated messages are sanitized, deduplicated, deterministically split, validated against the `/process` contract, and gitignored. The current source manifest produces 2,000 corpus records and 4,394 evaluation records. Ingestion embeds each corpus record and upserts it under the selected `corpusVersion`. Switching `rag_corpus_version` makes a newly imported corpus active without overwriting an older version.
 
+RAG v1 preserves the original representation: both document embeddings and retrieved context contain only the sanitized source message, while query embeddings contain the subject, body, and SPF/DKIM/DMARC verdicts. RAG v2 uses an asymmetric, enriched representation. Its document embedding contains the immutable source message plus reviewed security signals, and its generation context additionally includes the reviewed explanation. The v2 query embedding adds normalized findings from the deterministic heuristic stage to the message and authentication data. It deliberately excludes the heuristic score, aggregate comment, and final verdict so similarity retrieval cannot merely reproduce the prefilter's decision.
+
+Build and import the enriched corpus with:
+
+```sh
+python3 tools/datasets/build_rag_v2_corpus.py
+cd functions/process
+GOOGLE_CLOUD_PROJECT=project-id RAG_CORPUS_VERSION=v2 \
+  npm run rag:ingest -- ../../datasets/generated/rag-v2-corpus.jsonl
+```
+
+Changing the v2 retrieval representation requires this re-import because Firestore stores the previously calculated embedding vector. Existing v2 document IDs are reused, so the import updates the records in place instead of creating a duplicate corpus.
+
 This is retrieval corpus construction, not model training or fine-tuning.
 
 ## Benchmarking

@@ -72,7 +72,7 @@ export const processRequest = async (
         ? dependencies.modelProviderForRuntimeModel(request.model)
         : dependencies.modelProvider;
     const rag = dependencies.ragRetriever
-      ? await withOneRetry(() => dependencies.ragRetriever!.retrieve(request))
+      ? await withOneRetry(() => dependencies.ragRetriever!.retrieve(request, analysis))
       : undefined;
     const llm = await withOneRetry(() =>
       modelProvider.assess({
